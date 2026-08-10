@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ServerMonitor.Infrastructure.Data;
+using ServerMonitor.Infrastructure.Monitoring;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +11,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+builder.Services.AddSingleton<IMetricsCollector, MetricsCollector>();
+
+builder.Services.AddHostedService<MetricsCollectorService>();
 
 var app = builder.Build();
 

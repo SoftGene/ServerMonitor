@@ -15,4 +15,6 @@ public class MetricSnapshot
     public double DiskUsedGb { get; set; }
 
     public double DiskTotalGb { get; set; }
+
+    public double UptimeSeconds { get; set; }
 }
