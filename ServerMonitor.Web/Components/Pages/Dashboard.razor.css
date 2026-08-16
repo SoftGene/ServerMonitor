@@ -1,0 +1,45 @@
+/* CSS for Dashboard component */
+.dashboard {
+    padding: 24px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.dashboard h1 {
+    color: #cdd6f4;
+    margin-bottom: 8px;
+}
+
+.last-update {
+    color: #6c7086;
+    font-size: 13px;
+    margin-bottom: 20px;
+}
+
+.cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.error {
+    color: #e74c3c;
+}
+
+.loading {
+    color: #a6adc8;
+}
+
+.chart-container {
+    background: #1e1e2e;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 24px;
+    color: #cdd6f4;
+}
+
+.chart-container h2 {
+    font-size: 16px;
+    margin-bottom: 16px;
+    color: #a6adc8;
+}
