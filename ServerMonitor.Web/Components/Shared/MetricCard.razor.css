@@ -1,45 +1,68 @@
 ﻿.metric-card {
-    background: #1e1e2e;
-    border-radius: 12px;
-    padding: 20px;
-    color: #cdd6f4;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    transition: all 0.25s ease;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
 }
 
-.metric-header {
+.metric-card:hover {
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
+}
+
+.metric-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.metric-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.metric-title {
     font-size: 14px;
-    text-transform: uppercase;
-    color: #a6adc8;
-    letter-spacing: 1px;
+    font-weight: 500;
+    color: var(--text-muted);
 }
 
 .metric-value {
-    font-size: 28px;
-    font-weight: bold;
-    margin: 8px 0;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 16px;
+    letter-spacing: -0.02em;
 }
 
 .metric-bar-bg {
-    background: #313244;
-    border-radius: 6px;
+    background: var(--surface-2);
+    border-radius: 8px;
     height: 8px;
     overflow: hidden;
-    margin: 8px 0;
+    border: 1px solid var(--border);
 }
 
 .metric-bar-fill {
     height: 100%;
-    border-radius: 6px;
-    transition: width 0.3s ease;
-}
-
-.metric-percent {
-    font-size: 13px;
-    color: #a6adc8;
+    border-radius: 8px;
+    transition: width 0.4s ease;
 }
 
 .metric-subtitle {
-    font-size: 12px;
-    color: #6c7086;
-    margin-top: 4px;
+    font-size: 13px;
+    color: var(--text-soft);
+    margin-top: 12px;
 }

@@ -1,36 +1,36 @@
 ﻿<div class="metric-card">
-    <div class="metric-header">@Title</div>
+    <div class="metric-top">
+        <div class="metric-icon" style="background: @IconBg; color: @IconColor;">
+            @((MarkupString)Icon)
+        </div>
+        <div class="metric-title">@Title</div>
+    </div>
     <div class="metric-value">@Value</div>
     @if (Percent is not null)
     {
         <div class="metric-bar-bg">
-            <div class="metric-bar-fill" style="width: @Percent%; background-color: @BarColor;"></div>
+            <div class="metric-bar-fill" style="width: @Percent%; background: @BarColor;"></div>
         </div>
-        <div class="metric-percent">@Percent%</div>
     }
-    @if(!string.IsNullOrEmpty(Subtitle))
+    @if (!string.IsNullOrEmpty(Subtitle))
     {
         <div class="metric-subtitle">@Subtitle</div>
     }
 </div>
 
-@code{
-    [Parameter]
-    public string Title { get; set; } = string.Empty;
-
-    [Parameter]
-    public string Value { get; set; } = string.Empty;
-
-    [Parameter]
-    public double? Percent { get; set; }
-
-    [Parameter]
-    public string? Subtitle { get; set; }
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Value { get; set; } = string.Empty;
+    [Parameter] public double? Percent { get; set; }
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string Icon { get; set; } = "";
+    [Parameter] public string IconBg { get; set; } = "rgba(16, 185, 129, 0.12)";
+    [Parameter] public string IconColor { get; set; } = "#10b981";
 
     private string BarColor => Percent switch
     {
-        >= 90 => "#e74c3c",
-        >= 70 => "#f39c12",
-        _ => "#27ae60"
+        >= 90 => "#ef4444",
+        >= 70 => "#f59e0b",
+        _ => "#10b981"
     };
 }
