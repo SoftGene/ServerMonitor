@@ -1,0 +1,53 @@
+﻿@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<button class="theme-switch @(currentTheme == "dark" ? "dark" : "")" @onclick="ToggleTheme" title="Toggle theme" aria-label="Toggle theme">
+    <span class="switch-track">
+        <span class="clouds">
+            <span class="cloud cloud-a">
+                <span class="puff puff-1"></span>
+                <span class="puff puff-2"></span>
+                <span class="puff puff-3"></span>
+            </span>
+            <span class="cloud cloud-b">
+                <span class="puff puff-1"></span>
+                <span class="puff puff-2"></span>
+            </span>
+        </span>
+        <span class="stars">
+            <span class="star star-1"></span>
+            <span class="star star-2"></span>
+            <span class="star star-3"></span>
+            <span class="star star-4"></span>
+        </span>
+        <span class="switch-thumb">
+            <span class="sun-rays"></span>
+            <span class="moon-craters">
+                <span class="crater crater-1"></span>
+                <span class="crater crater-2"></span>
+                <span class="crater crater-3"></span>
+            </span>
+        </span>
+    </span>
+</button>
+
+@code {
+    private string currentTheme = "light";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            currentTheme = await JS.InvokeAsync<string>("themeManager.initTheme");
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleTheme()
+    {
+        currentTheme = currentTheme == "light" ? "dark" : "light";
+        await JS.InvokeVoidAsync("themeManager.setTheme", currentTheme);
+    }
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}

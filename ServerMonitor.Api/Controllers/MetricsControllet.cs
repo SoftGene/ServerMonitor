@@ -63,7 +63,7 @@ public class MetricsController : ControllerBase
     private static string FormatUpTime(double totalSeconds)
     {
         var span = TimeSpan.FromSeconds(totalSeconds);
-        return $"{(int)span.TotalDays}d, {span.Hours}h, {span.Minutes}m";
+        return $"{(int)span.TotalDays}d {span.Hours}h {span.Minutes}m";
     }
 
     [HttpGet("history")]

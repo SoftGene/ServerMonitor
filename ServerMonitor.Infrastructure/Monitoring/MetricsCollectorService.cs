@@ -12,7 +12,7 @@ public class MetricsCollectorService : BackgroundService
     private readonly IMetricsCollector _collector;
     private readonly ILogger<MetricsCollectorService> _logger;
 
-    private readonly TimeSpan _interval = TimeSpan.FromSeconds(10);
+    private readonly TimeSpan _interval = TimeSpan.FromSeconds(5);
 
     public MetricsCollectorService(
         IServiceScopeFactory scopeFactory,

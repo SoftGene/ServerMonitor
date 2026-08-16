@@ -5,57 +5,85 @@
 @inject MetricsApiClient ApiClient
 @implements IDisposable
 
-<PageTitle>Dashboard</PageTitle>
+<PageTitle>Server Monitor</PageTitle>
 
 <div class="dashboard">
-    <h1>Server Monitor</h1>
+    <header class="dash-header">
+        <div>
+            <h1>Server Monitor</h1>
+            @if (status is not null)
+            {
+                <p class="dash-subtitle">
+                    <span class="live-dot @(isPaused ? "paused" : "")"></span>
+                    @(isPaused ? "Paused" : "Live") · updated @status.TimeStampUtc.ToLocalTime().ToString("HH:mm:ss")
+                </p>
+            }
+        </div>
+        <div class="header-actions">
+            <button class="icon-btn @(isRefreshing ? "spinning" : "")" @onclick="RefreshNow" title="Refresh now">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>
+            </button>
+            <button class="icon-btn" @onclick="TogglePause" title="@(isPaused ? "Resume" : "Pause")">
+                @if (isPaused)
+                {
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                }
+                else
+                {
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
+                }
+            </button>
+        </div>
+    </header>
 
     @if (loadError is not null)
     {
-        <p class="error">Error loading data: @loadError</p>
+        <div class="state-msg error">⚠ @loadError</div>
     }
     else if (status is null)
     {
-        <p class="loading">Loading...</p>
+        <div class="state-msg">Loading...</div>
     }
     else
     {
-        <p class="last-update">Last update: @status.TimeStampUtc.ToLocalTime().ToString("g")</p>
-
         <div class="cards-grid">
-            <MetricCard Title="CPU"
-                        Value="@($"{status.CpuUsagePercent}%")"
-                        Percent="status.CpuUsagePercent" />
-
-            <MetricCard Title="Memory"
-                        Value="@($"{status.MemoryUsagePercent}%")"
-                        Percent="status.MemoryUsagePercent"
-                        Subtitle="@($"{status.MemoryUsedMb:F0} / {status.MemoryTotalMb:F0} MB")" />
-
-            <MetricCard Title="Disk"
-                        Value="@($"{status.DiskUsagePercent}%")"
-                        Percent="status.DiskUsagePercent"
-                        Subtitle="@($"{status.DiskUsedGb:F1} / {status.DiskTotalGb:F1} GB")" />
-
-            <MetricCard Title="Uptime"
-                        Value="@status.Uptime" />
+            <div class="card-anim" style="animation-delay: 0ms">
+                <MetricCard Title="CPU Usage" Value="@($"{status.CpuUsagePercent}%")" Percent="status.CpuUsagePercent"
+                            Subtitle="@StatLine(h => h.CpuUsagePercent)"
+                            Icon="@IconCpu" IconBg="rgba(16, 185, 129, 0.12)" IconColor="#10b981" />
+            </div>
+            <div class="card-anim" style="animation-delay: 80ms">
+                <MetricCard Title="Memory" Value="@($"{status.MemoryUsagePercent}%")" Percent="status.MemoryUsagePercent"
+                            Subtitle="@($"{status.MemoryUsedMb:F0} / {status.MemoryTotalMb:F0} MB")"
+                            Icon="@IconMemory" IconBg="rgba(59, 130, 246, 0.12)" IconColor="#3b82f6" />
+            </div>
+            <div class="card-anim" style="animation-delay: 160ms">
+                <MetricCard Title="Disk" Value="@($"{status.DiskUsagePercent}%")" Percent="status.DiskUsagePercent"
+                            Subtitle="@($"{status.DiskUsedGb:F1} / {status.DiskTotalGb:F1} GB")"
+                            Icon="@IconDisk" IconBg="rgba(139, 92, 246, 0.12)" IconColor="#8b5cf6" />
+            </div>
+            <div class="card-anim" style="animation-delay: 240ms">
+                <MetricCard Title="Uptime" Value="@status.Uptime"
+                            Icon="@IconClock" IconBg="rgba(245, 158, 11, 0.12)" IconColor="#f59e0b" />
+            </div>
         </div>
 
-        <div class="chart-container">
-            <h2>History</h2>
+        <div class="chart-card card-anim" style="animation-delay: 320ms">
+            <div class="chart-header">
+                <h2>Performance History</h2>
+                <div class="period-switch">
+                    @foreach (var p in periods)
+                    {
+                        <button class="period-btn @(sampleCount == p ? "active" : "")" @onclick="() => ChangePeriod(p)">@p</button>
+                    }
+                </div>
+            </div>
             <RadzenChart>
-                <RadzenLineSeries Data="history"
-                                  CategoryProperty="TimestampUtc"
-                                  ValueProperty="CpuUsagePercent"
-                                  Title="CPU %"
-                                  Stroke="#89b4fa" />
-                <RadzenLineSeries Data="history"
-                                  CategoryProperty="TimestampUtc"
-                                  ValueProperty="MemoryUsagePercent"
-                                  Title="Memory %"
-                                  Stroke="#a6e3a1" />
+                <RadzenLineSeries Data="history" CategoryProperty="TimestampUtc" ValueProperty="CpuUsagePercent" Title="CPU %" Stroke="#10b981" StrokeWidth="2.5" />
+                <RadzenLineSeries Data="history" CategoryProperty="TimestampUtc" ValueProperty="MemoryUsagePercent" Title="Memory %" Stroke="#3b82f6" StrokeWidth="2.5" />
+                <RadzenLineSeries Data="history" CategoryProperty="TimestampUtc" ValueProperty="DiskUsagePercent" Title="Disk %" Stroke="#8b5cf6" StrokeWidth="2.5" />
                 <RadzenCategoryAxis Formatter="@FormatTime" />
-                <RadzenValueAxis>
+                <RadzenValueAxis Min="0" Max="100" Step="25">
                     <RadzenAxisTitle Text="Usage %" />
                 </RadzenValueAxis>
                 <RadzenLegend Position="LegendPosition.Bottom" />
@@ -66,19 +94,27 @@
 
 @code {
     private ServerStatus? status;
-    private string? loadError;
     private List<MetricHistoryItem> history = new();
+    private string? loadError;
     private Timer? refreshTimer;
+    private RadzenChart? chart;
+
+    private bool isPaused = false;
+    private bool isRefreshing = false;
+    private int sampleCount = 50;
+    private readonly int[] periods = { 50, 100, 200 };
 
     protected override async Task OnInitializedAsync()
     {
         await LoadDataAsync();
-
         refreshTimer = new Timer(async _ =>
         {
-            await LoadDataAsync();
-            await InvokeAsync(StateHasChanged);
-        }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+            if (!isPaused)
+            {
+                await LoadDataAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
     }
 
     private async Task LoadDataAsync()
@@ -86,8 +122,7 @@
         try
         {
             status = await ApiClient.GetStatusAsync();
-
-            var raw = await ApiClient.GetHistoryAsync(50);
+            var raw = await ApiClient.GetHistoryAsync(sampleCount);
             history = raw
                 .OrderBy(h => h.TimestampUtc)
                 .Select(h => new MetricHistoryItem
@@ -98,7 +133,6 @@
                     DiskUsagePercent = h.DiskUsagePercent
                 })
                 .ToList();
-
             loadError = null;
         }
         catch (Exception ex)
@@ -107,17 +141,41 @@
         }
     }
 
-    public void Dispose()
+    private async Task RefreshNow()
     {
-        refreshTimer?.Dispose();
+        isRefreshing = true;
+        StateHasChanged();
+        await LoadDataAsync();
+        await Task.Delay(500);
+        isRefreshing = false;
+    }
+
+    private void TogglePause() => isPaused = !isPaused;
+
+    private async Task ChangePeriod(int count)
+    {
+        sampleCount = count;
+        await LoadDataAsync();
+    }
+
+    private string StatLine(Func<MetricHistoryItem, double> selector)
+    {
+        if (history.Count == 0) return "";
+        var avg = history.Average(selector);
+        var max = history.Max(selector);
+        return $"avg {avg:F1}% · max {max:F1}%";
     }
 
     private string FormatTime(object value)
     {
-        if(value is DateTime dt)
-        {
-            return dt.ToString("HH:mm");
-        }
+        if (value is DateTime dt) return dt.ToString("HH:mm");
         return value?.ToString() ?? "";
     }
+
+    private const string IconCpu = "<svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='4' y='4' width='16' height='16' rx='2'/><rect x='9' y='9' width='6' height='6'/><path d='M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3'/></svg>";
+    private const string IconMemory = "<svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 8h18a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z'/><path d='M6 16v2M10 16v2M14 16v2M18 16v2'/><path d='M6 11v2M9 11v2M12 11v2M15 11v2M18 11v2'/></svg>";
+    private const string IconDisk = "<svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='9'/><circle cx='12' cy='12' r='3'/><path d='M16.5 7.5l-3 3'/></svg>";
+    private const string IconClock = "<svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='9'/><path d='M12 7v5l3 2'/></svg>";
+
+    public void Dispose() => refreshTimer?.Dispose();
 }
