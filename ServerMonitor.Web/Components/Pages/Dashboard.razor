@@ -1,0 +1,123 @@
+﻿@page "/dashboard"
+@using ServerMonitor.Web.Models
+@using ServerMonitor.Web.Services
+@using ServerMonitor.Web.Components.Shared
+@inject MetricsApiClient ApiClient
+@implements IDisposable
+
+<PageTitle>Dashboard</PageTitle>
+
+<div class="dashboard">
+    <h1>Server Monitor</h1>
+
+    @if (loadError is not null)
+    {
+        <p class="error">Error loading data: @loadError</p>
+    }
+    else if (status is null)
+    {
+        <p class="loading">Loading...</p>
+    }
+    else
+    {
+        <p class="last-update">Last update: @status.TimeStampUtc.ToLocalTime().ToString("g")</p>
+
+        <div class="cards-grid">
+            <MetricCard Title="CPU"
+                        Value="@($"{status.CpuUsagePercent}%")"
+                        Percent="status.CpuUsagePercent" />
+
+            <MetricCard Title="Memory"
+                        Value="@($"{status.MemoryUsagePercent}%")"
+                        Percent="status.MemoryUsagePercent"
+                        Subtitle="@($"{status.MemoryUsedMb:F0} / {status.MemoryTotalMb:F0} MB")" />
+
+            <MetricCard Title="Disk"
+                        Value="@($"{status.DiskUsagePercent}%")"
+                        Percent="status.DiskUsagePercent"
+                        Subtitle="@($"{status.DiskUsedGb:F1} / {status.DiskTotalGb:F1} GB")" />
+
+            <MetricCard Title="Uptime"
+                        Value="@status.Uptime" />
+        </div>
+
+        <div class="chart-container">
+            <h2>History</h2>
+            <RadzenChart>
+                <RadzenLineSeries Data="history"
+                                  CategoryProperty="TimestampUtc"
+                                  ValueProperty="CpuUsagePercent"
+                                  Title="CPU %"
+                                  Stroke="#89b4fa" />
+                <RadzenLineSeries Data="history"
+                                  CategoryProperty="TimestampUtc"
+                                  ValueProperty="MemoryUsagePercent"
+                                  Title="Memory %"
+                                  Stroke="#a6e3a1" />
+                <RadzenCategoryAxis Formatter="@FormatTime" />
+                <RadzenValueAxis>
+                    <RadzenAxisTitle Text="Usage %" />
+                </RadzenValueAxis>
+                <RadzenLegend Position="LegendPosition.Bottom" />
+            </RadzenChart>
+        </div>
+    }
+</div>
+
+@code {
+    private ServerStatus? status;
+    private string? loadError;
+    private List<MetricHistoryItem> history = new();
+    private Timer? refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+
+        refreshTimer = new Timer(async _ =>
+        {
+            await LoadDataAsync();
+            await InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            status = await ApiClient.GetStatusAsync();
+
+            var raw = await ApiClient.GetHistoryAsync(50);
+            history = raw
+                .OrderBy(h => h.TimestampUtc)
+                .Select(h => new MetricHistoryItem
+                {
+                    TimestampUtc = h.TimestampUtc.ToLocalTime(),
+                    CpuUsagePercent = h.CpuUsagePercent,
+                    MemoryUsagePercent = h.MemoryUsagePercent,
+                    DiskUsagePercent = h.DiskUsagePercent
+                })
+                .ToList();
+
+            loadError = null;
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+    }
+
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
+    }
+
+    private string FormatTime(object value)
+    {
+        if(value is DateTime dt)
+        {
+            return dt.ToString("HH:mm");
+        }
+        return value?.ToString() ?? "";
+    }
+}

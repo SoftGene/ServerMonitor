@@ -55,7 +55,6 @@ public class MetricsController : ControllerBase
             DiskTotalGb = Math.Round(latest.DiskTotalGb, 1),
             DiskUsagePercent = latest.DiskTotalGb > 0 ? Math.Round((latest.DiskUsedGb / latest.DiskTotalGb) * 100, 1) : 0,
             Uptime = FormatUpTime(latest.UptimeSeconds),
-
         };
 
         return Ok(dto);

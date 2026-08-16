@@ -1,0 +1,36 @@
+﻿<div class="metric-card">
+    <div class="metric-header">@Title</div>
+    <div class="metric-value">@Value</div>
+    @if (Percent is not null)
+    {
+        <div class="metric-bar-bg">
+            <div class="metric-bar-fill" style="width: @Percent%; background-color: @BarColor;"></div>
+        </div>
+        <div class="metric-percent">@Percent%</div>
+    }
+    @if(!string.IsNullOrEmpty(Subtitle))
+    {
+        <div class="metric-subtitle">@Subtitle</div>
+    }
+</div>
+
+@code{
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Value { get; set; } = string.Empty;
+
+    [Parameter]
+    public double? Percent { get; set; }
+
+    [Parameter]
+    public string? Subtitle { get; set; }
+
+    private string BarColor => Percent switch
+    {
+        >= 90 => "#e74c3c",
+        >= 70 => "#f39c12",
+        _ => "#27ae60"
+    };
+}

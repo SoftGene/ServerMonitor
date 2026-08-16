@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="ServerMonitor.Api/ServerMonitor.Api.csproj" />
   <Project Path="ServerMonitor.Infrastructure/ServerMonitor.Infrastructure.csproj" />
+  <Project Path="ServerMonitor.Web/ServerMonitor.Web.csproj" Id="61b15e43-415c-46b1-bb22-4cc641e32f63" />
   <Project Path="SeverMonitor.Domain/SeverMonitor.Domain.csproj" />
 </Solution>
