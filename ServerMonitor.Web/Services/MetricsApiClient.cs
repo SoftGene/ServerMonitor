@@ -24,4 +24,24 @@ public class MetricsApiClient
 
         return items ?? new List<MetricHistoryItem>();
     }
+
+    public async Task<PagedResult<MetricHistoryItem>> GetHistoryPagedAsync(
+        int page = 1,
+        int pageSize = 20,
+        string sortBy = "timestamp",
+        string sortDir = "desc",
+        DateTime? from = null,
+        DateTime? to = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = $"api/metrics/history/paged?page={page}&pageSize={pageSize}&sortBy={sortBy}&sortDir={sortDir}";
+
+        if (from.HasValue)
+            url += $"&from={from.Value:yyyy-MM-dd}";
+        if (to.HasValue)
+            url += $"&to={to.Value:yyyy-MM-dd}";
+
+        var result = await _httpClient.GetFromJsonAsync<PagedResult<MetricHistoryItem>>(url, cancellationToken);
+        return result ?? new PagedResult<MetricHistoryItem>();
+    }
 }

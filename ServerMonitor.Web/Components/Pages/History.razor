@@ -1,6 +1,189 @@
 ﻿@page "/history"
+@using ServerMonitor.Web.Models
+@using ServerMonitor.Web.Services
+@inject MetricsApiClient ApiClient
+
 <PageTitle>History · ServerML</PageTitle>
-<div class="page-stub">
-    <h1>History</h1>
-    <p>Detailed metrics history — coming next.</p>
+
+<div class="history-page">
+    <header class="page-header">
+        <div>
+            <h1>History</h1>
+            <p class="page-sub">All collected metric snapshots</p>
+        </div>
+        @if (!IsDefaultSort)
+        {
+            <button class="reset-btn" @onclick="ResetSort">Reset sorting</button>
+        }
+    </header>
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label>From</label>
+            <input type="date" @bind="fromDate" class="date-input" />
+        </div>
+        <div class="filter-group">
+            <label>To</label>
+            <input type="date" @bind="toDate" class="date-input" />
+        </div>
+        <button class="apply-btn" @onclick="ApplyFilter">Apply</button>
+        @if (fromDate is not null || toDate is not null)
+        {
+            <button class="clear-btn" @onclick="ClearFilter">Clear</button>
+        }
+    </div>
+
+    @if (loadError is not null)
+    {
+        <div class="state-msg error">⚠ @loadError</div>
+    }
+    else if (data is null)
+    {
+        <div class="state-msg">Loading...</div>
+    }
+    else
+    {
+        <div class="table-card">
+            <table class="metrics-table">
+                <thead>
+                    <tr>
+                        <th class="sortable" @onclick='() => SortByColumn("timestamp")'>
+                            Time @SortArrow("timestamp")
+                        </th>
+                        <th class="sortable" @onclick='() => SortByColumn("cpu")'>
+                            CPU @SortArrow("cpu")
+                        </th>
+                        <th class="sortable" @onclick='() => SortByColumn("memory")'>
+                            Memory @SortArrow("memory")
+                        </th>
+                        <th class="sortable" @onclick='() => SortByColumn("disk")'>
+                            Disk @SortArrow("disk")
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in data.Items)
+                    {
+                        <tr>
+                            <td>@item.TimestampUtc.ToLocalTime().ToString("dd MMM, HH:mm:ss")</td>
+                            <td><span class="badge @UsageClass(item.CpuUsagePercent)">@item.CpuUsagePercent%</span></td>
+                            <td><span class="badge @UsageClass(item.MemoryUsagePercent)">@item.MemoryUsagePercent%</span></td>
+                            <td><span class="badge @UsageClass(item.DiskUsagePercent)">@item.DiskUsagePercent%</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <div class="pagination">
+                <div class="page-size-switch">
+                    <span class="page-size-label">Rows:</span>
+                    @foreach (var size in pageSizes)
+                    {
+                        <button class="size-btn @(pageSize == size ? "active" : "")" @onclick="() => ChangePageSize(size)">@size</button>
+                    }
+                </div>
+                <span class="page-info">Page @data.Page of @data.TotalPages · @data.TotalCount records</span>
+                <div class="page-controls">
+                    <button class="page-btn" disabled="@(!data.HasPrevious)" @onclick="PrevPage">← Prev</button>
+                    <button class="page-btn" disabled="@(!data.HasNext)" @onclick="NextPage">Next →</button>
+                </div>
+            </div>
+        </div>
+    }
 </div>
+
+@code {
+    private PagedResult<MetricHistoryItem>? data;
+    private string? loadError;
+    private int currentPage = 1;
+    private int pageSize = 20;
+    private readonly int[] pageSizes = { 10, 20, 50 };
+    private DateTime? fromDate;
+    private DateTime? toDate;
+
+    private string sortBy = "timestamp";
+    private string sortDir = "desc";
+
+    private bool IsDefaultSort => sortBy == "timestamp" && sortDir == "desc";
+
+    protected override async Task OnInitializedAsync() => await LoadPage();
+
+    private async Task LoadPage()
+    {
+        try
+        {
+            data = await ApiClient.GetHistoryPagedAsync(currentPage, pageSize, sortBy, sortDir, fromDate, toDate);
+            loadError = null;
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+    }
+
+    private async Task SortByColumn(string column)
+    {
+        if (sortBy == column)
+        {
+            sortDir = sortDir == "asc" ? "desc" : "asc";
+        }
+        else
+        {
+            sortBy = column;
+            sortDir = "desc";
+        }
+        currentPage = 1;
+        await LoadPage();
+    }
+
+    private async Task ResetSort()
+    {
+        sortBy = "timestamp";
+        sortDir = "desc";
+        currentPage = 1;
+        await LoadPage();
+    }
+
+    private string SortArrow(string column)
+    {
+        if (sortBy != column) return "";
+        return sortDir == "asc" ? "↑" : "↓";
+    }
+
+    private async Task NextPage()
+    {
+        if (data?.HasNext == true) { currentPage++; await LoadPage(); }
+    }
+
+    private async Task PrevPage()
+    {
+        if (data?.HasPrevious == true) { currentPage--; await LoadPage(); }
+    }
+
+    private async Task ChangePageSize(int size)
+    {
+        pageSize = size;
+        currentPage = 1;
+        await LoadPage();
+    }
+
+    private async Task ApplyFilter()
+    {
+        currentPage = 1;
+        await LoadPage();
+    }
+
+    private async Task ClearFilter()
+    {
+        fromDate = null;
+        toDate = null;
+        currentPage = 1;
+        await LoadPage();
+    }
+
+    private string UsageClass(double percent) => percent switch
+    {
+        >= 90 => "badge-red",
+        >= 70 => "badge-orange",
+        _ => "badge-green"
+    };
+}
