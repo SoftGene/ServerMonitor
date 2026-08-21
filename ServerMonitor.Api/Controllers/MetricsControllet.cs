@@ -90,4 +90,80 @@ public class MetricsController : ControllerBase
 
         return Ok(items);
     }
+
+    [HttpGet("history/paged")]
+    public async Task<ActionResult<PagedResult<MetricHistoryItemDto>>> GetHistoryPaged(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string sortBy = "timestamp",
+        [FromQuery] string sortDir = "desc",
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (page < 1) page = 1;
+        if (pageSize < 1 || pageSize > 100) pageSize = 20;
+
+
+        IQueryable<MetricSnapshot> query = _dbContext.MetricSnapshots;
+
+        if (from.HasValue)
+        {
+            var fromUtc = DateTime.SpecifyKind(from.Value, DateTimeKind.Utc);
+            query = query.Where(m => m.TimestampUtc >= fromUtc);
+        }
+
+        if (to.HasValue)
+        {
+            var toUtc = DateTime.SpecifyKind(to.Value, DateTimeKind.Utc).AddDays(1);
+            query = query.Where(m => m.TimestampUtc < toUtc);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        bool ascending = sortDir.Equals("asc", StringComparison.OrdinalIgnoreCase);
+
+        query = sortBy.ToLower() switch
+        {
+            "cpu" => ascending
+                ? query.OrderBy(m => m.CpuUsagePercent)
+                : query.OrderByDescending(m => m.CpuUsagePercent),
+            "memory" => ascending
+                ? query.OrderBy(m => m.MemoryUsedMb / m.MemoryTotalMb)
+                : query.OrderByDescending(m => m.MemoryUsedMb / m.MemoryTotalMb),
+            "disk" => ascending
+                ? query.OrderBy(m => m.DiskUsedGb / m.DiskTotalGb)
+                : query.OrderByDescending(m => m.DiskUsedGb / m.DiskTotalGb),
+            _ => ascending
+                ? query.OrderBy(m => m.TimestampUtc)
+                : query.OrderByDescending(m => m.TimestampUtc)
+        };
+
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(m => new MetricHistoryItemDto
+            {
+                TimestampUtc = m.TimestampUtc,
+                CpuUsagePercent = m.CpuUsagePercent,
+                MemoryUsagePercent = m.MemoryTotalMb > 0
+                    ? Math.Round(m.MemoryUsedMb / m.MemoryTotalMb * 100, 1)
+                    : 0,
+                DiskUsagePercent = m.DiskTotalGb > 0
+                    ? Math.Round(m.DiskUsedGb / m.DiskTotalGb * 100, 1)
+                    : 0
+            })
+            .ToListAsync(cancellationToken);
+
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        return Ok(new PagedResult<MetricHistoryItemDto>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalCount = totalCount,
+            TotalPages = totalPages
+        });
+    }
 }
