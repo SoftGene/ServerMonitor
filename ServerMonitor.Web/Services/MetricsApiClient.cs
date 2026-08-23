@@ -44,4 +44,12 @@ public class MetricsApiClient
         var result = await _httpClient.GetFromJsonAsync<PagedResult<MetricHistoryItem>>(url, cancellationToken);
         return result ?? new PagedResult<MetricHistoryItem>();
     }
+
+    public async Task<List<Alert>> GetAlertsAsync(int count = 50, CancellationToken cancellationToken = default)
+    {
+        var alerts = await _httpClient.GetFromJsonAsync<List<Alert>>(
+            $"api/alerts?count={count}", cancellationToken);
+
+        return alerts ?? new List<Alert>();
+    }
 }

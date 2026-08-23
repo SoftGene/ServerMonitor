@@ -11,4 +11,5 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<MetricSnapshot> MetricSnapshots => Set<MetricSnapshot>();
+    public DbSet<Alert> Alerts => Set<Alert>();
 }
