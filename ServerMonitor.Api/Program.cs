@@ -1,7 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 using ServerMonitor.Infrastructure.Data;
 using ServerMonitor.Infrastructure.Monitoring;
-using Scalar.AspNetCore;
+using ServerMonitor.Infrastructure.Telegram;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +17,8 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton<IMetricsCollector, MetricsCollector>();
 
 builder.Services.AddHostedService<MetricsCollectorService>();
+
+builder.Services.AddHostedService<TelegramBotService>();
 
 var app = builder.Build();
 
