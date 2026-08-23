@@ -1,6 +1,96 @@
 ﻿@page "/alerts"
+@using ServerMonitor.Web.Models
+@using ServerMonitor.Web.Services
+@inject MetricsApiClient ApiClient
+
 <PageTitle>Alerts · ServerML</PageTitle>
-<div class="page-stub">
-    <h1>Alerts</h1>
-    <p>Alert events history — coming with Telegram bot.</p>
+
+<div class="alerts-page">
+    <header class="page-header">
+        <div>
+            <h1>Alerts</h1>
+            <p class="page-sub">History of threshold events</p>
+        </div>
+        <button class="refresh-btn @(isRefreshing ? "spinning" : "")" @onclick="Refresh" title="Refresh">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>
+        </button>
+    </header>
+
+    @if (loadError is not null)
+    {
+        <div class="state-msg error">⚠ @loadError</div>
+    }
+    else if (alerts is null)
+    {
+        <div class="state-msg">Loading...</div>
+    }
+    else if (alerts.Count == 0)
+    {
+        <div class="empty-state">
+            <div class="empty-icon">✓</div>
+            <h3>No alerts yet</h3>
+            <p>Everything is running smoothly. Alerts will appear here when thresholds are exceeded.</p>
+        </div>
+    }
+    else
+    {
+        <div class="alerts-list">
+            @foreach (var alert in alerts)
+            {
+                <div class="alert-item @(alert.AlertType == "Triggered" ? "triggered" : "recovered")">
+                    <div class="alert-icon">
+                        @if (alert.AlertType == "Triggered")
+                        {
+                            <span>⚠️</span>
+                        }
+                        else
+                        {
+                            <span>✅</span>
+                        }
+                    </div>
+                    <div class="alert-body">
+                        <div class="alert-title">
+                            @alert.MetricType @(alert.AlertType == "Triggered" ? "exceeded threshold" : "recovered")
+                        </div>
+                        <div class="alert-detail">
+                            Value: <strong>@alert.Value%</strong> · Threshold: @alert.Threshold%
+                        </div>
+                    </div>
+                    <div class="alert-time">
+                        @alert.TimestampUtc.ToLocalTime().ToString("dd MMM, HH:mm:ss")
+                    </div>
+                </div>
+            }
+        </div>
+    }
 </div>
+
+@code {
+    private List<Alert>? alerts;
+    private string? loadError;
+    private bool isRefreshing = false;
+
+    protected override async Task OnInitializedAsync() => await LoadAlerts();
+
+    private async Task LoadAlerts()
+    {
+        try
+        {
+            alerts = await ApiClient.GetAlertsAsync(50);
+            loadError = null;
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+    }
+
+    private async Task Refresh()
+    {
+        isRefreshing = true;
+        StateHasChanged();
+        await LoadAlerts();
+        await Task.Delay(500);
+        isRefreshing = false;
+    }
+}
