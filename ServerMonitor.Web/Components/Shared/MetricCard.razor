@@ -7,7 +7,7 @@
     @if (Percent is not null)
     {
         <div class="metric-scale">
-            <div class="metric-bar-fill" style="width: @Percent%; background: @BarColor;"></div>
+            <div class="metric-bar-fill" style="width: @(Percent.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%; background: @BarColor;"></div>
             <span class="scale-tick" style="left: 25%"></span>
             <span class="scale-tick" style="left: 50%"></span>
             <span class="scale-tick" style="left: 75%"></span>
