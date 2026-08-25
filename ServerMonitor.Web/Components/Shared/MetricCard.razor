@@ -4,6 +4,12 @@
         <span class="metric-title">@Title</span>
     </div>
     <div class="metric-value">@Value</div>
+    @if (!string.IsNullOrEmpty(Spark))
+    {
+        <svg class="metric-spark" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
+            <polyline points="@Spark" vector-effect="non-scaling-stroke" />
+        </svg>
+    }
     @if (Percent is not null)
     {
         <div class="metric-scale">
@@ -24,6 +30,7 @@
     [Parameter] public string Value { get; set; } = string.Empty;
     [Parameter] public double? Percent { get; set; }
     [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string? Spark { get; set; }
     [Parameter] public string Icon { get; set; } = "";
     [Parameter] public string IconBg { get; set; } = "rgba(16, 185, 129, 0.12)";
     [Parameter] public string IconColor { get; set; } = "#10b981";

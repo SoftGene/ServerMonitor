@@ -7,6 +7,7 @@
 }
 
 [data-theme="light"] {
+    --grid-line: rgba(22, 24, 26, 0.035);
     --bg: #f6f6f3;
     --surface: #fdfdfb;
     --surface-2: #efefe9;
@@ -26,6 +27,7 @@
 }
 
 [data-theme="dark"] {
+    --grid-line: rgba(230, 232, 228, 0.03);
     --bg: #0e0f11;
     --surface: #131518;
     --surface-2: #1a1d21;
@@ -50,6 +52,27 @@ html, body {
     color: var(--text);
     margin: 0;
     transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Blueprint-миллиметровка: едва различимая сетка фона страницы */
+body {
+    background-image:
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 28px 28px;
+}
+
+/* Фосфорная вспышка значения при обновлении данных (класс ставит js/liveflash.js) */
+.value-flash {
+    animation: value-flash 0.6s ease;
+}
+
+@keyframes value-flash {
+    from { color: var(--accent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .value-flash { animation: none; }
 }
 
 a, .btn-link {

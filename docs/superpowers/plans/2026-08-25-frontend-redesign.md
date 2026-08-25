@@ -1654,3 +1654,21 @@ Expected: изменения только в разметке; блоки `@code
 git add -A
 git commit -m "redesign: final polish after visual review in both themes"
 ```
+
+---
+
+## Phase 2 — «Оживление» (см. спеку, раздел Phase 2)
+
+### Task 8: Осциллограф + sparkline + курсор/flash + сетка + stats + куб
+
+**Files:**
+- Modify: ServerMonitor.Web/Components/Pages/Dashboard.razor (разметка: каналы, stats, куб, курсор; @code: +ChartPoints, −chart, −FormatTime)
+- Modify: ServerMonitor.Web/Components/Pages/Dashboard.razor.css (scope-panel, stats-strip, cube, cursor)
+- Modify: ServerMonitor.Web/Components/Shared/MetricCard.razor (+Parameter Spark, spark-svg)
+- Modify: ServerMonitor.Web/Components/Shared/MetricCard.razor.css (.metric-spark)
+- Modify: ServerMonitor.Web/wwwroot/app.css (--grid-line, фон-сетка, .value-flash, reduced-motion)
+- Create: ServerMonitor.Web/wwwroot/js/liveflash.js
+- Modify: ServerMonitor.Web/Components/App.razor (+script liveflash.js, −Radzen css/js)
+- Modify: ServerMonitor.Web/Components/Layout/MainLayout.razor (−RadzenComponents)
+
+Верификация: dotnet build; браузер — каналы рисуются из данных API, flash при 5-сек обновлении, куб вращается и паузится, сетка видна в обеих темах; commit.
