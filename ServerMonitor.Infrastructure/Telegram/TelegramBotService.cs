@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -20,11 +21,6 @@ public class TelegramBotService : BackgroundService
     private string? _chatId;
 
     private readonly TimeSpan _checkInterval = TimeSpan.FromSeconds(30);
-
-    // Thresholds (hardcoded for now, will move to Settings later)
-    private const double CpuThreshold = 5;
-    private const double MemoryThreshold = 90;
-    private const double DiskThreshold = 90;
 
     // Track previous alert state to avoid spam
     private bool _cpuWasHigh = false;
@@ -97,6 +93,12 @@ public class TelegramBotService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
+        var settings = await dbContext.AppSettings.FirstOrDefaultAsync(cancellationToken);
+        if (settings is null) return;
+
+        if (!settings.AlertsEnabled)
+            return;
+
         var latest = dbContext.MetricSnapshots
             .OrderByDescending(m => m.TimestampUtc)
             .FirstOrDefault();
@@ -107,9 +109,9 @@ public class TelegramBotService : BackgroundService
         var memory = latest.MemoryTotalMb > 0 ? latest.MemoryUsedMb / latest.MemoryTotalMb * 100 : 0;
         var disk = latest.DiskTotalGb > 0 ? latest.DiskUsedGb / latest.DiskTotalGb * 100 : 0;
 
-        await CheckThreshold(dbContext, cpu, CpuThreshold, "CPU", () => _cpuWasHigh, v => _cpuWasHigh = v, cancellationToken);
-        await CheckThreshold(dbContext, memory, MemoryThreshold, "Memory", () => _memoryWasHigh, v => _memoryWasHigh = v, cancellationToken);
-        await CheckThreshold(dbContext, disk, DiskThreshold, "Disk", () => _diskWasHigh, v => _diskWasHigh = v, cancellationToken);
+        await CheckThreshold(dbContext, cpu, settings.CpuThreshold, "CPU", () => _cpuWasHigh, v => _cpuWasHigh = v, cancellationToken);
+        await CheckThreshold(dbContext, memory, settings.MemoryThreshold, "Memory", () => _memoryWasHigh, v => _memoryWasHigh = v, cancellationToken);
+        await CheckThreshold(dbContext, disk, settings.DiskThreshold, "Disk", () => _diskWasHigh, v => _diskWasHigh = v, cancellationToken);
     }
 
     private async Task CheckThreshold(AppDbContext dbContext, double value, double threshold, string name,

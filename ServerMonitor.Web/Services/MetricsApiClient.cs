@@ -25,6 +25,17 @@ public class MetricsApiClient
         return items ?? new List<MetricHistoryItem>();
     }
 
+    public async Task<AppSettings?> GetSettingsAsync(CancellationToken cancellationToken = default)
+    {
+        return await _httpClient.GetFromJsonAsync<AppSettings>("api/settings", cancellationToken);
+    }
+
+    public async Task<bool> UpdateSettingsAsync(AppSettings settings, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync("api/settings", settings, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
     public async Task<PagedResult<MetricHistoryItem>> GetHistoryPagedAsync(
         int page = 1,
         int pageSize = 20,
