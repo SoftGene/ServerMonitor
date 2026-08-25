@@ -1,17 +1,16 @@
 .topnav {
-    background: var(--surface);
+    background: var(--bg);
     border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
     z-index: 100;
-    backdrop-filter: blur(8px);
 }
 
 .topnav-inner {
     max-width: 1200px;
     margin: 0 auto;
     padding: 0 32px;
-    height: 64px;
+    height: 60px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -29,41 +28,22 @@
     align-items: center;
 }
 
+.brand-logo svg {
+    width: 20px;
+    height: 20px;
+}
+
 .brand-text {
-    font-size: 20px;
-    font-weight: 700;
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 600;
     color: var(--text);
-    letter-spacing: -0.02em;
+    letter-spacing: 0.04em;
 }
 
 .brand-accent {
     color: var(--accent);
 }
-
-.nav-links {
-    display: flex;
-    gap: 4px;
-}
-
-    .nav-links .nav-link {
-        padding: 8px 16px;
-        border-radius: 10px;
-        color: var(--text-muted);
-        text-decoration: none;
-        font-size: 14px;
-        font-weight: 500;
-        transition: all 0.2s ease;
-    }
-
-        .nav-links .nav-link:hover {
-            color: var(--text);
-            background: var(--surface-2);
-        }
-
-        .nav-links .nav-link.active {
-            color: var(--accent);
-            background: var(--accent-soft);
-        }
 
 .nav-right {
     display: flex;
