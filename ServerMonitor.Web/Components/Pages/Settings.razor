@@ -1,6 +1,123 @@
 ﻿@page "/settings"
+@using ServerMonitor.Web.Models
+@using ServerMonitor.Web.Services
+@inject MetricsApiClient ApiClient
+
 <PageTitle>Settings · ServerML</PageTitle>
-<div class="page-stub">
-    <h1>Settings</h1>
-    <p>Alert thresholds and configuration — coming soon.</p>
+
+<div class="settings-page">
+    <header class="page-header">
+        <div>
+            <h1>Settings</h1>
+            <p class="page-sub">Configure alert thresholds and notifications</p>
+        </div>
+    </header>
+
+    @if (loadError is not null)
+    {
+        <div class="state-msg error">⚠ @loadError</div>
+    }
+    else if (settings is null)
+    {
+        <div class="state-msg">Loading...</div>
+    }
+    else
+    {
+        <div class="settings-card">
+            <div class="setting-section">
+                <h2>Alert Thresholds</h2>
+                <p class="section-hint">Get notified when usage exceeds these values (%)</p>
+
+                <div class="setting-row">
+                    <label>CPU threshold</label>
+                    <div class="input-wrap">
+                        <input type="number" min="1" max="100" @bind="settings.CpuThreshold" class="threshold-input" />
+                        <span class="unit">%</span>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <label>Memory threshold</label>
+                    <div class="input-wrap">
+                        <input type="number" min="1" max="100" @bind="settings.MemoryThreshold" class="threshold-input" />
+                        <span class="unit">%</span>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <label>Disk threshold</label>
+                    <div class="input-wrap">
+                        <input type="number" min="1" max="100" @bind="settings.DiskThreshold" class="threshold-input" />
+                        <span class="unit">%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="setting-section">
+                <h2>Notifications</h2>
+                <div class="setting-row">
+                    <div>
+                        <label>Enable alerts</label>
+                        <p class="row-hint">Turn Telegram alerts on or off</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" @bind="settings.AlertsEnabled" />
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-footer">
+                @if (saveMessage is not null)
+                {
+                    <span class="save-message @(saveSuccess ? "success" : "error-msg")">@saveMessage</span>
+                }
+                <button class="save-btn" @onclick="Save" disabled="@isSaving">
+                    @(isSaving ? "Saving..." : "Save changes")
+                </button>
+            </div>
+        </div>
+    }
 </div>
+
+@code {
+    private AppSettings? settings;
+    private string? loadError;
+    private string? saveMessage;
+    private bool saveSuccess;
+    private bool isSaving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            settings = await ApiClient.GetSettingsAsync();
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+    }
+
+    private async Task Save()
+    {
+        if (settings is null) return;
+
+        if (settings.CpuThreshold < 1 || settings.CpuThreshold > 100 ||
+            settings.MemoryThreshold < 1 || settings.MemoryThreshold > 100 ||
+            settings.DiskThreshold < 1 || settings.DiskThreshold > 100)
+        {
+            saveMessage = "Thresholds must be between 1 and 100.";
+            saveSuccess = false;
+            return;
+        }
+
+        isSaving = true;
+        saveMessage = null;
+        StateHasChanged();
+
+        var ok = await ApiClient.UpdateSettingsAsync(settings);
+
+        isSaving = false;
+        saveSuccess = ok;
+        saveMessage = ok ? "Settings saved successfully." : "Failed to save settings.";
+    }
+}
