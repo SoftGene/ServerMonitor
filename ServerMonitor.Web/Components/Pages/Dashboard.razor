@@ -15,22 +15,22 @@
             {
                 <p class="dash-subtitle">
                     <span class="live-dot @(isPaused ? "paused" : "")"></span>
-                    @(isPaused ? "Paused" : "Live") · updated @status.TimeStampUtc.ToLocalTime().ToString("HH:mm:ss")
+                    @(isPaused ? "Paused" : "Live") · upd @status.TimeStampUtc.ToLocalTime().ToString("HH:mm:ss")
                 </p>
             }
         </div>
         <div class="header-actions">
             <button class="icon-btn @(isRefreshing ? "spinning" : "")" @onclick="RefreshNow" title="Refresh now">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>
             </button>
             <button class="icon-btn" @onclick="TogglePause" title="@(isPaused ? "Resume" : "Pause")">
                 @if (isPaused)
                 {
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
                 }
                 else
                 {
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
                 }
             </button>
         </div>
@@ -38,39 +38,28 @@
 
     @if (loadError is not null)
     {
-        <div class="state-msg error">⚠ @loadError</div>
+        <div class="state-msg error">[ERR] @loadError</div>
     }
     else if (status is null)
     {
-        <div class="state-msg">Loading...</div>
+        <div class="state-msg">Loading…</div>
     }
     else
     {
-        <div class="cards-grid">
-            <div class="card-anim" style="animation-delay: 0ms">
-                <MetricCard Title="CPU Usage" Value="@($"{status.CpuUsagePercent}%")" Percent="status.CpuUsagePercent"
-                            Subtitle="@StatLine(h => h.CpuUsagePercent)"
-                            Icon="@IconCpu" IconBg="rgba(16, 185, 129, 0.12)" IconColor="#10b981" />
-            </div>
-            <div class="card-anim" style="animation-delay: 80ms">
-                <MetricCard Title="Memory" Value="@($"{status.MemoryUsagePercent}%")" Percent="status.MemoryUsagePercent"
-                            Subtitle="@($"{status.MemoryUsedMb:F0} / {status.MemoryTotalMb:F0} MB")"
-                            Icon="@IconMemory" IconBg="rgba(59, 130, 246, 0.12)" IconColor="#3b82f6" />
-            </div>
-            <div class="card-anim" style="animation-delay: 160ms">
-                <MetricCard Title="Disk" Value="@($"{status.DiskUsagePercent}%")" Percent="status.DiskUsagePercent"
-                            Subtitle="@($"{status.DiskUsedGb:F1} / {status.DiskTotalGb:F1} GB")"
-                            Icon="@IconDisk" IconBg="rgba(139, 92, 246, 0.12)" IconColor="#8b5cf6" />
-            </div>
-            <div class="card-anim" style="animation-delay: 240ms">
-                <MetricCard Title="Uptime" Value="@status.Uptime"
-                            Icon="@IconClock" IconBg="rgba(245, 158, 11, 0.12)" IconColor="#f59e0b" />
-            </div>
+        <div class="section-label"><span class="section-no">01</span>Live metrics</div>
+        <div class="metric-panel">
+            <MetricCard Title="CPU Usage" Value="@($"{status.CpuUsagePercent}%")" Percent="status.CpuUsagePercent"
+                        Subtitle="@StatLine(h => h.CpuUsagePercent)" Icon="@IconCpu" />
+            <MetricCard Title="Memory" Value="@($"{status.MemoryUsagePercent}%")" Percent="status.MemoryUsagePercent"
+                        Subtitle="@($"{status.MemoryUsedMb:F0} / {status.MemoryTotalMb:F0} MB")" Icon="@IconMemory" />
+            <MetricCard Title="Disk" Value="@($"{status.DiskUsagePercent}%")" Percent="status.DiskUsagePercent"
+                        Subtitle="@($"{status.DiskUsedGb:F1} / {status.DiskTotalGb:F1} GB")" Icon="@IconDisk" />
+            <MetricCard Title="Uptime" Value="@status.Uptime" Icon="@IconClock" />
         </div>
 
-        <div class="chart-card card-anim" style="animation-delay: 320ms">
+        <div class="chart-panel">
             <div class="chart-header">
-                <h2>Performance History</h2>
+                <div class="section-label no-rule"><span class="section-no">02</span>Performance history</div>
                 <div class="period-switch">
                     @foreach (var p in periods)
                     {
@@ -79,9 +68,9 @@
                 </div>
             </div>
             <RadzenChart>
-                <RadzenLineSeries Data="history" CategoryProperty="TimestampUtc" ValueProperty="CpuUsagePercent" Title="CPU %" Stroke="#10b981" StrokeWidth="2.5" />
-                <RadzenLineSeries Data="history" CategoryProperty="TimestampUtc" ValueProperty="MemoryUsagePercent" Title="Memory %" Stroke="#3b82f6" StrokeWidth="2.5" />
-                <RadzenLineSeries Data="history" CategoryProperty="TimestampUtc" ValueProperty="DiskUsagePercent" Title="Disk %" Stroke="#8b5cf6" StrokeWidth="2.5" />
+                <RadzenLineSeries Data="history" CategoryProperty="TimestampUtc" ValueProperty="CpuUsagePercent" Title="CPU %" Stroke="#1fce63" StrokeWidth="2" />
+                <RadzenLineSeries Data="history" CategoryProperty="TimestampUtc" ValueProperty="MemoryUsagePercent" Title="Memory %" Stroke="#8494ab" StrokeWidth="2" />
+                <RadzenLineSeries Data="history" CategoryProperty="TimestampUtc" ValueProperty="DiskUsagePercent" Title="Disk %" Stroke="#d9a13a" StrokeWidth="2" />
                 <RadzenCategoryAxis Formatter="@FormatTime" />
                 <RadzenValueAxis Min="0" Max="100" Step="25">
                     <RadzenAxisTitle Text="Usage %" />
