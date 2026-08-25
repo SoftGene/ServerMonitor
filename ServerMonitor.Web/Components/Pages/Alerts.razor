@@ -27,13 +27,14 @@
     else if (alerts.Count == 0)
     {
         <div class="empty-state">
-            <div class="empty-icon">✓</div>
+            <div class="empty-icon">OK</div>
             <h3>No alerts yet</h3>
             <p>Everything is running smoothly. Alerts will appear here when thresholds are exceeded.</p>
         </div>
     }
     else
     {
+        <div class="section-label"><span class="section-no">01</span>Event log</div>
         <div class="alerts-list">
             @foreach (var alert in alerts)
             {
@@ -41,11 +42,11 @@
                     <div class="alert-icon">
                         @if (alert.AlertType == "Triggered")
                         {
-                            <span>⚠️</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><path d="M12 9v4M12 17h.01" /></svg>
                         }
                         else
                         {
-                            <span>✅</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" /><path d="M22 4L12 14.01l-3-3" /></svg>
                         }
                     </div>
                     <div class="alert-body">
