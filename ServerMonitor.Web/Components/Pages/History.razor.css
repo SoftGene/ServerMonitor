@@ -1,19 +1,22 @@
 .history-page {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 32px;
+    padding: 36px 32px 48px;
 }
 
 .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
     margin-bottom: 24px;
 }
 
 .page-header h1 {
-    font-size: 28px;
-    font-weight: 700;
+    font-size: 26px;
+    font-weight: 600;
     color: var(--text);
     margin: 0;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
 }
 
 .page-sub {
@@ -24,9 +27,8 @@
 
 .table-card {
     background: var(--surface);
-    border-radius: 20px;
     border: 1px solid var(--border);
-    box-shadow: var(--shadow);
+    border-radius: var(--radius);
     overflow: hidden;
 }
 
@@ -37,18 +39,31 @@
 
 .metrics-table thead th {
     text-align: left;
-    padding: 16px 24px;
-    font-size: 12px;
+    padding: 14px 24px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-soft);
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
     border-bottom: 1px solid var(--border);
-    font-weight: 600;
+}
+
+.metrics-table thead th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s ease;
+}
+
+.metrics-table thead th.sortable:hover {
+    color: var(--accent);
 }
 
 .metrics-table tbody td {
-    padding: 14px 24px;
-    font-size: 14px;
+    padding: 12px 24px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
     color: var(--text);
     border-bottom: 1px solid var(--border);
 }
@@ -65,41 +80,46 @@
     background: var(--surface-2);
 }
 
+/* Значение + статусная точка вместо цветной пилюли */
 .badge {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
     font-size: 13px;
-    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
 }
 
-.badge-green {
-    background: rgba(16,185,129,0.12);
-    color: #10b981;
+.badge::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    flex-shrink: 0;
 }
 
-.badge-orange {
-    background: rgba(245,158,11,0.12);
-    color: #f59e0b;
-}
+.badge-green { color: var(--text); }
+.badge-green::before { background: var(--status-ok); }
 
-.badge-red {
-    background: rgba(239,68,68,0.12);
-    color: #ef4444;
-}
+.badge-orange { color: var(--status-warn); }
+.badge-orange::before { background: var(--status-warn); }
+
+.badge-red { color: var(--status-crit); }
+.badge-red::before { background: var(--status-crit); }
 
 .pagination {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 24px;
+    padding: 14px 24px;
     border-top: 1px solid var(--border);
     gap: 16px;
     flex-wrap: wrap;
 }
 
 .page-info {
-    font-size: 13px;
+    font-family: var(--font-mono);
+    font-size: 12px;
     color: var(--text-muted);
 }
 
@@ -108,19 +128,23 @@
     gap: 8px;
 }
 
-.page-btn {
-    background: var(--surface-2);
+.page-btn,
+.reset-btn,
+.clear-btn {
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 8px 16px;
+    border-radius: var(--radius);
+    padding: 7px 14px;
     cursor: pointer;
-    color: var(--text);
-    font-size: 13px;
-    font-weight: 500;
-    transition: all 0.2s ease;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.page-btn:hover:not(:disabled) {
+.page-btn:hover:not(:disabled),
+.reset-btn:hover,
+.clear-btn:hover {
     border-color: var(--accent);
     color: var(--accent);
 }
@@ -130,71 +154,47 @@
     cursor: not-allowed;
 }
 
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-}
-
-.metrics-table thead th.sortable {
-    cursor: pointer;
-    user-select: none;
-    transition: color 0.15s ease;
-}
-
-.metrics-table thead th.sortable:hover {
-    color: var(--accent);
-}
-
-.reset-btn {
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 8px 16px;
-    cursor: pointer;
-    color: var(--text-muted);
-    font-size: 13px;
-    font-weight: 500;
-    transition: all 0.2s ease;
-}
-
-.reset-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-}
-
 .page-size-switch {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 0;
 }
 
 .page-size-label {
-    font-size: 13px;
+    font-family: var(--font-mono);
+    font-size: 12px;
     color: var(--text-soft);
-    margin-right: 2px;
+    margin-right: 10px;
 }
 
 .size-btn {
-    background: var(--surface-2);
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-left: none;
     padding: 5px 12px;
     cursor: pointer;
     color: var(--text-muted);
-    font-size: 13px;
-    font-weight: 500;
-    transition: all 0.2s ease;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.page-size-switch .size-btn:first-of-type {
+    border-left: 1px solid var(--border);
+    border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.page-size-switch .size-btn:last-of-type {
+    border-radius: 0 var(--radius) var(--radius) 0;
 }
 
 .size-btn:hover:not(.active) {
     color: var(--text);
-    border-color: var(--text-soft);
 }
 
 .size-btn.active {
     background: var(--accent);
-    color: #fff;
+    color: var(--accent-contrast);
     border-color: var(--accent);
 }
 
@@ -202,7 +202,7 @@
     display: flex;
     align-items: flex-end;
     gap: 12px;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
     flex-wrap: wrap;
 }
 
@@ -213,21 +213,22 @@
 }
 
 .filter-group label {
-    font-size: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
     color: var(--text-soft);
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.08em;
 }
 
 .date-input {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 8px 12px;
+    border-radius: var(--radius);
+    padding: 8px 10px;
     color: var(--text);
-    font-size: 14px;
-    font-family: inherit;
+    font-family: var(--font-mono);
+    font-size: 13px;
     transition: border-color 0.2s ease;
     color-scheme: light;
 }
@@ -243,33 +244,18 @@
 
 .apply-btn {
     background: var(--accent);
-    border: none;
-    border-radius: 10px;
-    padding: 9px 20px;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 8px 18px;
     cursor: pointer;
-    color: #fff;
-    font-size: 14px;
+    color: var(--accent-contrast);
+    font-family: var(--font-mono);
+    font-size: 13px;
     font-weight: 500;
-    transition: all 0.2s ease;
+    transition: background 0.15s ease;
 }
 
 .apply-btn:hover {
     background: var(--accent-hover);
-}
-
-.clear-btn {
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 9px 18px;
-    cursor: pointer;
-    color: var(--text-muted);
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s ease;
-}
-
-.clear-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
+    border-color: var(--accent-hover);
 }
