@@ -1,8 +1,7 @@
-/* CSS for Settings component */
 .settings-page {
     max-width: 700px;
     margin: 0 auto;
-    padding: 32px;
+    padding: 36px 32px 48px;
 }
 
 .page-header {
@@ -10,11 +9,11 @@
 }
 
 .page-header h1 {
-    font-size: 28px;
-    font-weight: 700;
+    font-size: 26px;
+    font-weight: 600;
     color: var(--text);
     margin: 0;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
 }
 
 .page-sub {
@@ -26,13 +25,13 @@
 .settings-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 20px;
-    box-shadow: var(--shadow);
+    border-radius: var(--radius);
     overflow: hidden;
+    counter-reset: section;
 }
 
 .setting-section {
-    padding: 24px;
+    padding: 22px 26px;
     border-bottom: 1px solid var(--border);
 }
 
@@ -40,17 +39,27 @@
     border-bottom: none;
 }
 
+/* Нумерованные mono-заголовки секций через CSS-счётчики */
 .setting-section h2 {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--text);
-    margin: 0 0 4px;
+    counter-increment: section;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin: 0 0 6px;
+}
+
+.setting-section h2::before {
+    content: "0" counter(section) " — ";
+    color: var(--accent);
 }
 
 .section-hint {
     font-size: 13px;
     color: var(--text-muted);
-    margin: 0 0 16px;
+    margin: 0 0 14px;
 }
 
 .setting-row {
@@ -58,6 +67,11 @@
     justify-content: space-between;
     align-items: center;
     padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.setting-row:last-child {
+    border-bottom: none;
 }
 
 .setting-row label {
@@ -75,19 +89,21 @@
 .input-wrap {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
 }
 
 .threshold-input {
-    width: 80px;
-    background: var(--surface-2);
+    width: 76px;
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 8px 12px;
+    border-radius: var(--radius);
+    padding: 8px 10px;
     color: var(--text);
-    font-size: 14px;
-    font-family: inherit;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
     text-align: right;
+    transition: border-color 0.15s ease;
     color-scheme: light;
 }
 
@@ -102,9 +118,11 @@
 
 .unit {
     color: var(--text-muted);
-    font-size: 14px;
+    font-family: var(--font-mono);
+    font-size: 13px;
 }
 
+/* Приборный тумблер: прямые углы, квадратный бегунок */
 .switch {
     position: relative;
     display: inline-block;
@@ -124,29 +142,30 @@
     inset: 0;
     background: var(--surface-2);
     border: 1px solid var(--border);
-    border-radius: 999px;
-    transition: 0.3s;
+    border-radius: var(--radius);
+    transition: background 0.25s ease, border-color 0.25s ease;
 }
 
 .slider:before {
     content: "";
     position: absolute;
-    height: 18px;
-    width: 18px;
-    left: 3px;
-    bottom: 3px;
-    background: #fff;
-    border-radius: 50%;
-    transition: 0.3s;
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--text-soft);
+    transition: transform 0.25s ease, background 0.25s ease;
 }
 
 .switch input:checked + .slider {
-    background: var(--accent);
+    background: var(--accent-soft);
     border-color: var(--accent);
 }
 
 .switch input:checked + .slider:before {
-    transform: translateX(22px);
+    transform: translate(22px, -50%);
+    background: var(--accent);
 }
 
 .settings-footer {
@@ -154,36 +173,40 @@
     justify-content: flex-end;
     align-items: center;
     gap: 16px;
-    padding: 20px 24px;
+    padding: 18px 26px;
     background: var(--surface-2);
+    border-top: 1px solid var(--border);
 }
 
 .save-message {
-    font-size: 13px;
+    font-family: var(--font-mono);
+    font-size: 12px;
 }
 
 .save-message.success {
-    color: var(--accent);
+    color: var(--status-ok);
 }
 
 .save-message.error-msg {
-    color: #ef4444;
+    color: var(--status-crit);
 }
 
 .save-btn {
     background: var(--accent);
-    border: none;
-    border-radius: 10px;
-    padding: 10px 24px;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 9px 22px;
     cursor: pointer;
-    color: #fff;
-    font-size: 14px;
+    color: var(--accent-contrast);
+    font-family: var(--font-mono);
+    font-size: 13px;
     font-weight: 500;
-    transition: all 0.2s ease;
+    transition: background 0.15s ease;
 }
 
 .save-btn:hover:not(:disabled) {
     background: var(--accent-hover);
+    border-color: var(--accent-hover);
 }
 
 .save-btn:disabled {
