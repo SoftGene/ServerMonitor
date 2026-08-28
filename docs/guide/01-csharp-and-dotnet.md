@@ -672,7 +672,7 @@ refreshTimer = new Timer(async _ => { ... }, null, TimeSpan.FromSeconds(5), Time
 **LINQ** (Language Integrated Query) — единый синтаксис запросов к данным: к спискам в
 памяти, к базе данных, к XML. В проекте используется «методный» синтаксис — цепочка вызовов.
 
-Разберём запрос из [`MetricsController`](../../ServerMonitor.Api/Controllers/MetricsControllet.cs):
+Разберём запрос из [`MetricsController`](../../ServerMonitor.Api/Controllers/MetricsController.cs):
 
 ```csharp
 var items = await _dbContext.MetricSnapshots
