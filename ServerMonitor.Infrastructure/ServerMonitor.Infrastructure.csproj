@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SeverMonitor.Domain\SeverMonitor.Domain.csproj" />
+    <ProjectReference Include="..\SeverMonitor.Domain\ServerMonitor.Domain.csproj" />
   </ItemGroup>
 
 </Project>
