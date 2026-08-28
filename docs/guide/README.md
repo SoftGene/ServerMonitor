@@ -16,9 +16,9 @@
 |-------|-------|
 | [00 — Карта проекта](00-project-map.md) | Четыре слоя, правило зависимостей, путь одного числа от железа до экрана |
 | [01 — C# и .NET](01-csharp-and-dotnet.md) | Язык на примерах нашего кода: типы, async/await, LINQ, generics, делегаты |
-| 02 — ASP.NET Core | Хост, DI-контейнер, конвейер middleware, контроллеры, DTO |
-| 03 — EF Core и PostgreSQL | DbContext, миграции, IQueryable, трекинг изменений |
-| 04 — Фоновые сервисы | BackgroundService, времена жизни, IServiceScopeFactory |
+| [02 — ASP.NET Core](02-aspnet-core.md) | Хост, DI-контейнер, конвейер middleware, контроллеры, DTO |
+| [03 — EF Core и PostgreSQL](03-ef-core-and-postgres.md) | DbContext, миграции, IQueryable, трекинг изменений |
+| [04 — Фоновые сервисы](04-background-services.md) | BackgroundService, времена жизни, IServiceScopeFactory |
 | 05 — Сбор метрик | /proc в Linux, P/Invoke в Windows, дельта CPU |
 | 06 — Blazor Server | Рендер-режимы, SignalR, жизненный цикл компонента |
 | 07 — Telegram и алертинг | Long polling, состояние, гистерезис |
