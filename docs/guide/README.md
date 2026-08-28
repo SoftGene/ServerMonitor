@@ -19,12 +19,13 @@
 | [02 — ASP.NET Core](02-aspnet-core.md) | Хост, DI-контейнер, конвейер middleware, контроллеры, DTO |
 | [03 — EF Core и PostgreSQL](03-ef-core-and-postgres.md) | DbContext, миграции, IQueryable, трекинг изменений |
 | [04 — Фоновые сервисы](04-background-services.md) | BackgroundService, времена жизни, IServiceScopeFactory |
-| 05 — Сбор метрик | /proc в Linux, P/Invoke в Windows, дельта CPU |
-| 06 — Blazor Server | Рендер-режимы, SignalR, жизненный цикл компонента |
-| 07 — Telegram и алертинг | Long polling, состояние, гистерезис |
-| 08 — Конфигурация и запуск | appsettings, секреты, профили, порты |
+| [05 — Сбор метрик](05-metrics-collection.md) | /proc в Linux, P/Invoke в Windows, дельта CPU |
+| [06 — Blazor Server](06-blazor-server.md) | Рендер-режимы, SignalR, жизненный цикл компонента |
+| [07 — Telegram и алертинг](07-telegram-and-alerting.md) | Long polling, состояние, гистерезис |
+| [08 — Конфигурация и запуск](08-configuration-and-running.md) | appsettings, секреты, профили, порты |
 
-Главы без ссылок ещё не написаны.
+Главы 00–08 покрывают весь существующий код. Дальше гайд растёт вместе с проектом:
+каждый новый этап разработки завершается своей главой.
 
 ## Соглашения
 
