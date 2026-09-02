@@ -31,14 +31,25 @@
 
 ## Часть 2. `Program.cs` построчно
 
-Вот весь [`ServerMonitor.Api/Program.cs`](../../ServerMonitor.Api/Program.cs) — 38 строк, и
+Весь [`ServerMonitor.Api/Program.cs`](../../ServerMonitor.Api/Program.cs) — полсотни строк, и
 в них помещается всё приложение:
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "Connection string 'DefaultConnection' is not configured. ...");
+}
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
+
+builder.Services.Configure<MonitoringOptions>(
+    builder.Configuration.GetSection(MonitoringOptions.SectionName));
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
@@ -361,7 +372,6 @@ public async Task<ActionResult<ServerStatusDto>> GetStatus(CancellationToken can
 
 | Метод и путь | Обработчик | Что возвращает |
 |--------------|-----------|----------------|
-| `GET /api/metrics/latest` | `MetricsController.GetLatest` | `MetricSnapshot` — **сущность БД** |
 | `GET /api/metrics/status` | `MetricsController.GetStatus` | `ServerStatusDto` |
 | `GET /api/metrics/history?count=50` | `GetHistory` | `List<MetricHistoryItemDto>` |
 | `GET /api/metrics/history/paged?page=&pageSize=&sortBy=&sortDir=&from=&to=` | `GetHistoryPaged` | `PagedResult<MetricHistoryItemDto>` |
@@ -369,7 +379,9 @@ public async Task<ActionResult<ServerStatusDto>> GetStatus(CancellationToken can
 | `GET /api/settings` | `SettingsController.GetSettings` | `SettingsDto` |
 | `PUT /api/settings` | `SettingsController.UpdateSettings` | ничего, `204 No Content` |
 
-Про `latest` — ниже, это учебный пример «как не надо».
+В этом списке когда-то был ещё `GET /api/metrics/latest` — он отдавал наружу сущность базы
+данных. Эндпоинт удалён; почему так вышло и чем он был плох, разобрано ниже и в
+[главе 09](09-fixing-the-defects.md).
 
 ### Привязка модели
 
@@ -459,9 +471,10 @@ if (pageSize < 1 || pageSize > 100) pageSize = 20;
 **DTO** (Data Transfer Object) — объект для передачи данных наружу. Наши DTO лежат в
 [`ServerMonitor.Api/Dtos/`](../../ServerMonitor.Api/Dtos/).
 
-Сравним два метода одного контроллера. Первый:
+Проще всего понять их смысл на сравнении. Вот как выглядел удалённый метод `GetLatest`:
 
 ```csharp
+// так было — и так делать не надо
 [HttpGet("latest")]
 public async Task<ActionResult<MetricSnapshot>> GetLatest(CancellationToken cancellationToken)
 {
@@ -473,7 +486,7 @@ public async Task<ActionResult<MetricSnapshot>> GetLatest(CancellationToken canc
 }
 ```
 
-Он возвращает **сущность базы данных** прямо наружу. Второй, `GetStatus`, собирает DTO:
+Он возвращал **сущность базы данных** прямо наружу. А действующий `GetStatus` собирает DTO:
 
 ```csharp
 var dto = new ServerStatusDto
@@ -481,14 +494,16 @@ var dto = new ServerStatusDto
     TimeStampUtc = latest.TimestampUtc,
     CpuUsagePercent = latest.CpuUsagePercent,
     MemoryUsedMb = Math.Round(latest.MemoryUsedMb, 1),
-    MemoryUsagePercent = latest.MemoryTotalMb > 0
-        ? Math.Round((latest.MemoryUsedMb / latest.MemoryTotalMb) * 100, 1)
-        : 0,
+    MemoryUsagePercent = latest.MemoryUsagePercent,
     ...
     Uptime = FormatUpTime(latest.UptimeSeconds),
 };
 return Ok(dto);
 ```
+
+(`MemoryUsagePercent` у сущности — вычисляемое свойство: формула переехала в
+[`MetricSnapshot`](../../SeverMonitor.Domain/Entities/MetricSnapshot.cs), чтобы не
+дублироваться в контроллере и в боте. Подробности — в [главе 09](09-fixing-the-defects.md).)
 
 Четыре причины, почему второй вариант правильный:
 
@@ -502,14 +517,16 @@ return Ok(dto);
 4. **Значения приходят готовыми к показу.** `Uptime` в DTO — уже строка `"3d 7h 12m"`, а не
    число секунд.
 
-Заодно обрати внимание, что формула процента памяти живёт **в одном месте** — в `GetStatus`.
-Фронтенд получает готовое число и ничего не пересчитывает. Это и есть цель: правило
-вычисления не должно быть размазано по слоям.
+Заодно обрати внимание, что формула процента памяти живёт **в одном месте** — в сущности
+`MetricSnapshot`. Фронтенд получает готовое число и ничего не пересчитывает. Это и есть цель:
+правило вычисления не должно быть размазано по слоям.
 
-> **Слабое место.** `GetLatest` нарушает всё перечисленное: отдаёт `MetricSnapshot` как есть.
-> Метод сейчас никем не используется — `MetricsApiClient` его не вызывает, похоже, остался с
-> ранних этапов. Правильное решение: либо удалить, либо завести для него DTO. На
-> собеседовании такой метод — отличный повод показать, что ты понимаешь разницу.
+> **Как это исправили.** `GetLatest` нарушал всё перечисленное: отдавал `MetricSnapshot` как
+> есть. При этом его никто не вызывал — `MetricsApiClient` про него не знал, метод остался с
+> ранних этапов, а всё, что он умел, покрывает `/status`. Выбор был между «завести DTO» и
+> «удалить»; выбрали удалить, потому что неиспользуемый публичный эндпоинт — это лишняя
+> поверхность API, которую придётся поддерживать. Разбор — в
+> [главе 09](09-fixing-the-defects.md).
 
 ### Как объект превращается в JSON
 
@@ -605,7 +622,8 @@ sequenceDiagram
 - Middleware — цепочка, где порядок вызовов определяет поведение.
 - `[ApiController]` + `[Route("api/[controller]")]` + `[HttpGet("...")]` складываются в адрес
   эндпоинта.
-- DTO отделяет форму хранения от формы API; `GetLatest` в нашем коде это правило нарушает.
+- DTO отделяет форму хранения от формы API; эндпоинт `GetLatest`, нарушавший это правило,
+  удалён.
 - В нашем API стоит `UseAuthorization()` без аутентификации — защиты фактически нет.
 
 Дальше: глава 03 — EF Core и PostgreSQL: как `AppDbContext` превращает объекты в строки

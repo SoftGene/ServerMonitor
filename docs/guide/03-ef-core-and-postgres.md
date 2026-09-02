@@ -31,7 +31,7 @@
 
 ## Часть 2. `AppDbContext` — точка входа в базу
 
-Весь [`AppDbContext.cs`](../../ServerMonitor.Infrastructure/Data/AppDbContext.cs):
+[`AppDbContext.cs`](../../ServerMonitor.Infrastructure/Data/AppDbContext.cs) целиком:
 
 ```csharp
 public class AppDbContext : DbContext
@@ -49,6 +49,28 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.Entity<MetricSnapshot>(entity =>
+        {
+            entity.Ignore(m => m.MemoryUsagePercent);
+            entity.Ignore(m => m.DiskUsagePercent);
+            entity.HasIndex(m => m.TimestampUtc);
+        });
+
+        modelBuilder.Entity<Alert>(entity =>
+        {
+            entity.Property(a => a.MetricType)
+                .HasConversion(
+                    kind => kind.ToDisplayName(),
+                    value => Enum.Parse<MetricKind>(value, ignoreCase: true));
+
+            entity.Property(a => a.AlertType)
+                .HasConversion(
+                    kind => kind.ToString(),
+                    value => Enum.Parse<AlertKind>(value, ignoreCase: true));
+
+            entity.HasIndex(a => a.TimestampUtc);
+        });
+
         modelBuilder.Entity<AppSettings>().HasData(new AppSettings
         {
             Id = 1,
@@ -60,6 +82,16 @@ public class AppDbContext : DbContext
     }
 }
 ```
+
+Три настройки в `OnModelCreating` появились не сразу — их добавили, разбирая дефекты
+(см. [главу 09](09-fixing-the-defects.md)):
+
+- **`Ignore`** — у `MetricSnapshot` есть вычисляемые свойства `MemoryUsagePercent` и
+  `DiskUsagePercent`; колонок в базе им не нужно, и `Ignore` говорит об этом явно.
+- **`HasIndex`** — индекс по колонке, по которой сортирует каждый запрос проекта.
+- **`HasConversion`** — **конвертер значений** (value converter): в коде тип алерта стал
+  перечислением, а в базе остался строкой. Две лямбды описывают перевод в обе стороны, и
+  благодаря им записи, сделанные до появления перечислений, читаются без миграции данных.
 
 Разберём по частям.
 
@@ -243,6 +275,7 @@ protected override void Down(MigrationBuilder migrationBuilder)
 | `AddUptimeToMetricSnapshot` | добавила колонку `UptimeSeconds` |
 | `AddAlerts` | создала таблицу `Alerts` |
 | `AddAppSettings` | создала `AppSettings` и вставила строку с порогами |
+| `AddTimestampIndexes` | добавила индексы по `TimestampUtc` в обе таблицы |
 
 Особенно поучительна вторая:
 
@@ -369,20 +402,27 @@ var page = all.OrderByDescending(m => m.TimestampUtc).Take(20).ToList();
 
 ### Синхронные вызовы в фоновом сервисе
 
-А вот реальная шероховатость нашего кода —
+Одна из найденных шероховатостей жила в
 [`TelegramBotService`](../../ServerMonitor.Infrastructure/Telegram/TelegramBotService.cs):
 
 ```csharp
+// так было
 var latest = dbContext.MetricSnapshots
     .OrderByDescending(m => m.TimestampUtc)
     .FirstOrDefault();          // ← синхронный вариант
 ```
 
-Здесь `FirstOrDefault()` без `Async`. Запрос корректный, SQL тот же самый, но поток **стоит
-и ждёт** ответа базы вместо того, чтобы освободиться (глава 01). В фоновом сервисе, который
-просыпается раз в 30 секунд, вреда почти нет — но это несогласованность: строкой выше в том
-же методе используется `FirstOrDefaultAsync`. Правильно — везде асинхронный вариант с
-передачей `cancellationToken`.
+`FirstOrDefault()` без `Async`. Запрос корректный, SQL тот же самый, но поток **стоит и ждёт**
+ответа базы вместо того, чтобы освободиться (глава 01). В сервисе, который просыпается раз в
+30 секунд, вреда почти не было — но это была несогласованность: строкой выше в том же методе
+стоял `FirstOrDefaultAsync`. Сейчас везде асинхронный вариант с передачей токена:
+
+```csharp
+var latest = await dbContext.MetricSnapshots
+    .AsNoTracking()
+    .OrderByDescending(m => m.TimestampUtc)
+    .FirstOrDefaultAsync(cancellationToken);
+```
 
 ---
 
@@ -432,8 +472,9 @@ await dbContext.SaveChangesAsync(stoppingToken);
 `.Select(m => new MetricHistoryItemDto { ... })`, а **проекции не отслеживаются** — DTO не
 является сущностью модели. То есть `GetHistory` и `GetHistoryPaged` уже эффективны.
 
-А вот `GetStatus` и `GetLatest` возвращают сущность `MetricSnapshot`, и она попадает под
-отслеживание без всякой пользы — менять её никто не собирается. Правильная форма:
+А `GetStatus` возвращает сущность `MetricSnapshot`, и раньше она попадала под отслеживание
+без всякой пользы — менять её никто не собирается. Теперь во всех запросах только на чтение
+стоит `AsNoTracking()`:
 
 ```csharp
 var latest = await _dbContext.MetricSnapshots
@@ -451,10 +492,10 @@ var latest = await _dbContext.MetricSnapshots
 
 Соберём проблемы, которые проявятся при росте данных.
 
-### Нет индекса по `TimestampUtc`
+### Индекс по `TimestampUtc` (исправлено)
 
-Посмотри на миграции: единственный индекс в базе — первичный ключ по `Id`. При этом **каждый**
-запрос в проекте сортирует или фильтрует по `TimestampUtc`:
+Долгое время единственным индексом в базе был первичный ключ по `Id`. При этом **каждый**
+запрос проекта сортирует или фильтрует по `TimestampUtc`:
 
 ```csharp
 .OrderByDescending(m => m.TimestampUtc)
@@ -464,12 +505,15 @@ var latest = await _dbContext.MetricSnapshots
 отдать одну последнюю строку. При 10 тысячах строк это незаметно, при миллионе — секунды на
 каждое обновление дашборда.
 
-Лечится одной строкой в `OnModelCreating` и новой миграцией:
+Вылечилось двумя строками в `OnModelCreating` и миграцией `AddTimestampIndexes`:
 
 ```csharp
-modelBuilder.Entity<MetricSnapshot>()
-    .HasIndex(m => m.TimestampUtc);
+entity.HasIndex(m => m.TimestampUtc);   // для MetricSnapshots
+entity.HasIndex(a => a.TimestampUtc);   // и для Alerts
 ```
+
+Проверить, что индекс действительно используется, можно командой `EXPLAIN` в psql: в плане
+запроса вместо `Seq Scan` (полный просмотр таблицы) должен появиться `Index Scan`.
 
 ### Таблица растёт бесконечно
 
@@ -515,7 +559,9 @@ var fromUtc = DateTime.SpecifyKind(from.Value, DateTimeKind.Utc);
   вызвать `SaveChangesAsync()`.
 - Для запросов только на чтение полезен `AsNoTracking()`; проекции в DTO не отслеживаются и
   так.
-- Нашему проекту не хватает индекса по `TimestampUtc` и политики хранения данных.
+- Конвертер значений (`HasConversion`) позволяет держать в коде перечисление, а в базе —
+  строку, не трогая существующие данные.
+- Индексы по `TimestampUtc` добавлены; политики хранения данных проекту всё ещё не хватает.
 
 Дальше: глава 04 — фоновые сервисы: как устроен бесконечный цикл сбора, почему нельзя просто
 попросить `AppDbContext` в конструкторе и что происходит при остановке приложения.
