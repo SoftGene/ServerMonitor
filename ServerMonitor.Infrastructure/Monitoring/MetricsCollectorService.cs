@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using ServerMonitor.Infrastructure.Data;
 
 namespace ServerMonitor.Infrastructure.Monitoring;
@@ -11,17 +12,18 @@ public class MetricsCollectorService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IMetricsCollector _collector;
     private readonly ILogger<MetricsCollectorService> _logger;
-
-    private readonly TimeSpan _interval = TimeSpan.FromSeconds(5);
+    private readonly TimeSpan _interval;
 
     public MetricsCollectorService(
         IServiceScopeFactory scopeFactory,
         IMetricsCollector collector,
-        ILogger<MetricsCollectorService> logger)
+        ILogger<MetricsCollectorService> logger,
+        IOptions<MonitoringOptions> options)
     {
         _scopeFactory = scopeFactory;
         _collector = collector;
         _logger = logger;
+        _interval = options.Value.CollectInterval;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

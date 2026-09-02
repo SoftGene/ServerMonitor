@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServerMonitor.Api.Dtos;
+using ServerMonitor.Domain.Entities;
 using ServerMonitor.Infrastructure.Data;
 
 namespace ServerMonitor.Api.Controllers;
@@ -21,20 +22,31 @@ public class AlertsController : ControllerBase
         [FromQuery] int count = 50,
         CancellationToken cancellationToken = default)
     {
+        if (count < 1 || count > 500)
+        {
+            return BadRequest("Count must be between 1 and 500.");
+        }
+
+        // Сначала материализуем записи, потом переводим перечисления в строки:
+        // вызов ToDisplayName() в SQL не переводится.
         var alerts = await _dbContext.Alerts
+            .AsNoTracking()
             .OrderByDescending(a => a.TimestampUtc)
             .Take(count)
+            .ToListAsync(cancellationToken);
+
+        var dtos = alerts
             .Select(a => new AlertDto
             {
                 Id = a.Id,
                 TimestampUtc = a.TimestampUtc,
-                MetricType = a.MetricType,
+                MetricType = a.MetricType.ToDisplayName(),
                 Value = a.Value,
                 Threshold = a.Threshold,
-                AlertType = a.AlertType
+                AlertType = a.AlertType.ToString()
             })
-            .ToListAsync(cancellationToken);
+            .ToList();
 
-        return Ok(alerts);
+        return Ok(dtos);
     }
 }
