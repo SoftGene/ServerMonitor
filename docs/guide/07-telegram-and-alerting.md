@@ -80,6 +80,13 @@ private async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Canc
     if (update.Message is not { Text: { } messageText } message)
         return;
 
+    // Отвечаем только в настроенный чат.
+    if (!string.Equals(message.Chat.Id.ToString(), _chatId, StringComparison.Ordinal))
+    {
+        _logger.LogWarning("Ignored command from unauthorized chat {ChatId}.", message.Chat.Id);
+        return;
+    }
+
     var command = messageText.Split(' ')[0].ToLower();
 
     var response = command switch
@@ -112,17 +119,14 @@ private async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Canc
 
 Обработка ошибок отправки на месте — если Telegram недоступен, сервис не упадёт.
 
-> **Уязвимость.** Ответ отправляется на `message.Chat.Id` — то есть **тому, кто написал**.
-> Проверки, что это разрешённый чат, нет. Любой, кто узнает имя бота, может отправить ему
-> `/status` и получить метрики сервера: загрузку, объём памяти, заполненность диска. Для
-> разведки перед атакой это ценные сведения.
+> **Здесь была уязвимость.** Проверки чата не было вовсе: ответ уходил на `message.Chat.Id`,
+> то есть **тому, кто написал**. Любой, кто узнал бы имя бота, мог отправить `/status` и
+> получить метрики сервера: загрузку, объём памяти, заполненность диска. Для разведки перед
+> атакой это ценные сведения.
 >
-> Исправляется одной строкой в начале обработчика:
-> ```csharp
-> if (message.Chat.Id.ToString() != _chatId)
->     return;
-> ```
-> Позже, при поддержке нескольких получателей, здесь появится список разрешённых чатов.
+> Сейчас команды от посторонних чатов игнорируются, а попытка записывается в журнал с
+> уровнем `Warning` — так видно, что бота кто-то нашёл. Позже, при поддержке нескольких
+> получателей, одиночная проверка превратится в список разрешённых чатов.
 
 ### Обработка ошибок опроса
 
@@ -151,86 +155,146 @@ private async Task CheckMetricsAsync(CancellationToken cancellationToken)
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
     var settings = await dbContext.AppSettings.FirstOrDefaultAsync(cancellationToken);
-    if (settings is null) return;
-    if (!settings.AlertsEnabled) return;
 
-    var latest = dbContext.MetricSnapshots
+    if (settings is null || !settings.AlertsEnabled)
+    {
+        return;
+    }
+
+    var latest = await dbContext.MetricSnapshots
+        .AsNoTracking()
         .OrderByDescending(m => m.TimestampUtc)
-        .FirstOrDefault();
+        .FirstOrDefaultAsync(cancellationToken);
 
-    if (latest is null) return;
+    if (latest is null)
+    {
+        return;
+    }
 
-    var cpu = latest.CpuUsagePercent;
-    var memory = latest.MemoryTotalMb > 0 ? latest.MemoryUsedMb / latest.MemoryTotalMb * 100 : 0;
-    var disk = latest.DiskTotalGb > 0 ? latest.DiskUsedGb / latest.DiskTotalGb * 100 : 0;
-
-    await CheckThreshold(dbContext, cpu, settings.CpuThreshold, "CPU",
-        () => _cpuWasHigh, v => _cpuWasHigh = v, cancellationToken);
-    ...
+    await CheckThresholdAsync(dbContext, MetricKind.Cpu, latest.CpuUsagePercent, settings.CpuThreshold, cancellationToken);
+    await CheckThresholdAsync(dbContext, MetricKind.Memory, latest.MemoryUsagePercent, settings.MemoryThreshold, cancellationToken);
+    await CheckThresholdAsync(dbContext, MetricKind.Disk, latest.DiskUsagePercent, settings.DiskThreshold, cancellationToken);
 }
 ```
 
 Знакомая структура: своя область для `AppDbContext` (глава 04), пороги читаются из базы, а не
 из конфигурации — их можно менять на странице Settings без перезапуска.
 
-Обрати внимание: проценты памяти и диска считаются **здесь заново**, той же формулой, что и в
-`MetricsController.GetStatus` (глава 02). Логика продублирована в двух местах — если однажды
-формула изменится, легко забыть про второе. Кандидат на вынос в общий метод.
+Обрати внимание на `latest.MemoryUsagePercent`: раньше проценты считались **здесь заново**,
+той же формулой, что и в контроллере, — одна логика в двух местах. Теперь это вычисляемое
+свойство сущности (главы 02 и 03), и формула существует в единственном экземпляре.
 
 ### Гистерезис: защита от спама
 
 Самое интересное. Наивная проверка «значение выше порога → отправить сообщение» слала бы
 сообщение **каждые 30 секунд**, пока держится нагрузка. За час перегрузки — 120 сообщений.
 
-Поэтому сервис помнит, было ли значение высоким на прошлой проверке:
+Поэтому сервис помнит состояние по каждой метрике:
 
 ```csharp
-private bool _cpuWasHigh = false;
-private bool _memoryWasHigh = false;
-private bool _diskWasHigh = false;
+private readonly Dictionary<MetricKind, MetricAlertState> _states = new()
+{
+    [MetricKind.Cpu] = new MetricAlertState(),
+    [MetricKind.Memory] = new MetricAlertState(),
+    [MetricKind.Disk] = new MetricAlertState()
+};
+
+private sealed class MetricAlertState
+{
+    public bool IsAlerting { get; set; }              // тревога открыта, повторять не надо
+    public int ConsecutiveHighSamples { get; set; }   // сколько проверок подряд выше порога
+}
 ```
 
-и реагирует не на состояние, а на **переход** между состояниями:
+> **Как было раньше.** Вместо словаря лежали три отдельных поля `_cpuWasHigh`,
+> `_memoryWasHigh`, `_diskWasHigh`, а в метод проверки они передавались **парой делегатов** —
+> «прочитать это поле» и «записать в это поле» (`Func<bool>` и `Action<bool>`, разбор в
+> главе 01). Приём рабочий, но сигнатура метода разрасталась, и добавление четвёртой метрики
+> означало новое поле плюс новую пару лямбд. Со словарём достаточно одной строки.
+
+Проверка реагирует не на состояние, а на **переход** между состояниями:
 
 ```csharp
-private async Task CheckThreshold(AppDbContext dbContext, double value, double threshold, string name,
-    Func<bool> getWasHigh, Action<bool> setWasHigh, CancellationToken cancellationToken)
+private async Task CheckThresholdAsync(
+    AppDbContext dbContext, MetricKind kind, double value, double threshold,
+    CancellationToken cancellationToken)
 {
-    bool isHigh = value > threshold;
-    bool wasHigh = getWasHigh();
+    var state = _states[kind];
+    var name = kind.ToDisplayName();
 
-    if (isHigh && !wasHigh)
+    if (value > threshold)
     {
-        await SendAlert($"⚠️ <b>{name} Alert</b>\n{name} usage is high: <b>{value:F1}%</b> (threshold {threshold}%)", cancellationToken);
-        await SaveAlert(dbContext, name, value, threshold, "Triggered", cancellationToken);
-    }
-    else if (!isHigh && wasHigh)
-    {
-        await SendAlert($"✅ <b>{name} Recovered</b>\n{name} usage back to normal: <b>{value:F1}%</b>", cancellationToken);
-        await SaveAlert(dbContext, name, value, threshold, "Recovered", cancellationToken);
-    }
+        state.ConsecutiveHighSamples++;
 
-    setWasHigh(isHigh);
+        // Одиночный всплеск не поднимает тревогу: нужно несколько превышений подряд.
+        if (!state.IsAlerting && state.ConsecutiveHighSamples >= _options.RequiredConsecutiveSamples)
+        {
+            state.IsAlerting = true;
+            await SendAlertAsync($"⚠️ <b>{name} Alert</b> ...", cancellationToken);
+            await SaveAlertAsync(dbContext, kind, value, threshold, AlertKind.Triggered, cancellationToken);
+        }
+    }
+    else
+    {
+        state.ConsecutiveHighSamples = 0;
+
+        if (state.IsAlerting)
+        {
+            state.IsAlerting = false;
+            await SendAlertAsync($"✅ <b>{name} Recovered</b> ...", cancellationToken);
+            await SaveAlertAsync(dbContext, kind, value, threshold, AlertKind.Recovered, cancellationToken);
+        }
+    }
 }
 ```
 
 Логика в виде таблицы:
 
-| `wasHigh` | `isHigh` | Действие |
-|-----------|----------|----------|
-| нет | нет | ничего |
-| нет | **да** | отправить «Alert», записать `Triggered` |
-| **да** | да | ничего — уже сообщали |
-| **да** | нет | отправить «Recovered», записать `Recovered` |
+| Тревога открыта | Значение выше порога | Действие |
+|-----------------|----------------------|----------|
+| нет | нет | сбросить счётчик |
+| нет | да, но подряд меньше N раз | увеличить счётчик, молчать |
+| нет | да, N раз подряд | отправить «Alert», записать `Triggered` |
+| да | да | ничего — уже сообщали |
+| да | нет | отправить «Recovered», записать `Recovered` |
 
-Такое отслеживание фронтов — базовый приём алертинга. Про делегаты `Func<bool>`/`Action<bool>`
-в параметрах и о том, почему это не лучшее решение, подробно разобрано в главе 01.
+Счётчик подряд идущих превышений — это защита от **дребезга** (flapping). Загрузка процессора
+дёргается: 91 %, 88 %, 92 %, 87 %… При пороге 90 % и реакции по одному замеру получалась бы
+цепочка Alert → Recovered → Alert → Recovered. Требование трёх подряд превышений (значение
+настраивается в конфигурации) означает, что тревога поднимается, только если нагрузка
+действительно держится.
+
+### Состояние переживает перезапуск
+
+Словарь живёт в памяти, а значит при перезапуске приложения обнулился бы: о продолжающейся
+аварии сообщили бы второй раз, а «восстановление» после перезапуска потерялось бы совсем.
+Поэтому при старте состояние восстанавливается из журнала алертов:
+
+```csharp
+foreach (var kind in _states.Keys)
+{
+    var lastAlert = await dbContext.Alerts
+        .AsNoTracking()
+        .Where(a => a.MetricType == kind)
+        .OrderByDescending(a => a.TimestampUtc)
+        .FirstOrDefaultAsync(cancellationToken);
+
+    if (lastAlert is not null)
+    {
+        _states[kind].IsAlerting = lastAlert.AlertType == AlertKind.Triggered;
+    }
+}
+```
+
+Идея простая: последняя запись по метрике и есть её текущее состояние. Если последним было
+`Triggered` — тревога всё ещё открыта. База уже хранит нужные данные, отдельная таблица
+состояний не понадобилась.
 
 ### Запись события в базу
 
 ```csharp
-private async Task SaveAlert(AppDbContext dbContext, string metricType, double value,
-    double threshold, string alertType, CancellationToken cancellationToken)
+private async Task SaveAlertAsync(AppDbContext dbContext, MetricKind metricType, double value,
+    double threshold, AlertKind alertType, CancellationToken cancellationToken)
 {
     var alert = new Alert
     {
@@ -246,16 +310,18 @@ private async Task SaveAlert(AppDbContext dbContext, string metricType, double v
 }
 ```
 
-Отсюда берутся записи для страницы Alerts. Поля `MetricType` и `AlertType` — обычные строки
-(`"CPU"`, `"Triggered"`).
+Отсюда берутся записи для страницы Alerts.
 
-> **Стоит знать.** Строки в роли перечислений — распространённая слабость. Опечатка
-> `"Trigered"` компилятор не остановит, а фронтенд сравнивает именно со строкой:
+> **Здесь были «магические строки».** Поля `MetricType` и `AlertType` раньше объявлялись как
+> `string`, и в коде передавались литералы `"CPU"`, `"Triggered"`. Опечатку `"Trigered"`
+> компилятор не остановил бы, а фронтенд сравнивает именно со строкой:
 > ```razor
 > <div class="alert-item @(alert.AlertType == "Triggered" ? "triggered" : "recovered")">
 > ```
-> Аккуратнее — объявить `enum AlertType { Triggered, Recovered }`; EF Core умеет хранить
-> перечисления и как число, и как строку. Тогда опечатка станет ошибкой компиляции.
+> Сейчас это перечисления `MetricKind` и `AlertKind` (глава 03): опечатка стала ошибкой
+> компиляции. В базе значения по-прежнему хранятся строками — за перевод отвечает конвертер
+> значений EF Core, поэтому старые записи читаются без миграции данных, а контракт API не
+> изменился: наружу по-прежнему уходят те же строки.
 
 ---
 
@@ -287,35 +353,29 @@ bool isDown = age > TimeSpan.FromSeconds(60);
 
 Это первая задача в списке доработок алертинга.
 
-### 2. Состояние живёт только в памяти
+### 2. ~~Состояние живёт только в памяти~~ — исправлено
 
-Поля `_cpuWasHigh` и другие — обычные поля объекта. При перезапуске приложения они
-сбрасываются в `false`.
+Поля `_cpuWasHigh` и другие были обычными полями объекта и при перезапуске сбрасывались в
+`false`. Последствия: перезапустил сервис во время затянувшейся перегрузки — получил повторное
+сообщение о том, о чём уже сообщали; а если перезапуск пришёлся на момент, когда нагрузка уже
+спала, сообщение «Recovered» не приходило вовсе — переход терялся.
 
-Последствие: перезапустил сервис во время затянувшейся перегрузки — и получишь повторное
-сообщение «CPU Alert» о том, о чём уже сообщали. А если сервис перезапустился, когда нагрузка
-уже спала, сообщение «Recovered» не придёт вообще — переход потерян.
+Теперь состояние восстанавливается из таблицы `Alerts` при старте (см. часть 3): последняя
+запись по метрике и есть её текущее состояние. Отдельного хранилища не понадобилось.
 
-Правильнее хранить состояние там же, где данные: последний записанный `Alert` по каждой
-метрике и есть текущее состояние. Достаточно при старте прочитать из базы последнюю запись по
-каждому типу метрики.
+### 3. ~~Решение по одному замеру — дребезг~~ — исправлено наполовину
 
-### 3. Решение по одному замеру — будет дребезг
+`value > threshold` проверялось по **единственному** последнему снимку, и на дёрганой метрике
+это давало цепочку Alert → Recovered → Alert → Recovered.
 
-`value > threshold` проверяется по **единственному** последнему снимку. Загрузка процессора —
-величина дёрганая: 91 %, 88 %, 92 %, 87 %… При пороге 90 % это даст цепочку
-Alert → Recovered → Alert → Recovered — то самое «дребезжание» (flapping), от которого мы
-пытались уйти.
+Из двух стандартных лекарств применено первое:
 
-Два стандартных лекарства, обычно применяемых вместе:
-
-- **Подтверждение длительностью**: срабатывать только если превышение держится N проверок
-  подряд (например, 3 раза по 30 секунд = полторы минуты).
-- **Разные пороги для срабатывания и восстановления** (настоящий гистерезис): сработать при
-  90 %, а «восстановиться» только ниже 80 %. Между ними — мёртвая зона, в которой состояние
-  не меняется.
-
-Сейчас порог для обоих переходов один и тот же, зазора нет вовсе.
+- **Подтверждение длительностью** — сделано: тревога поднимается только если превышение
+  держится N проверок подряд (`Monitoring:AlertConsecutiveSamples`, по умолчанию 3 — это
+  полторы минуты при интервале 30 секунд).
+- **Разные пороги для срабатывания и восстановления** (настоящий гистерезис с мёртвой зоной:
+  сработать при 90 %, «восстановиться» ниже 80 %) — пока не сделано. Это потребует второго
+  порога в настройках и на странице Settings, поэтому отложено до этапа доработки алертинга.
 
 ### 4. Всего один канал и один уровень
 
@@ -328,11 +388,11 @@ Alert → Recovered → Alert → Recovered — то самое «дребезж
 
 ### 5. Мелочи
 
-- `FirstOrDefault()` вместо `FirstOrDefaultAsync()` — синхронное ожидание базы в асинхронном
-  методе (глава 03).
-- Интервал проверки (30 секунд) зашит в код.
+- ~~`FirstOrDefault()` вместо `FirstOrDefaultAsync()`~~ — исправлено, везде асинхронные
+  вызовы с передачей токена (глава 03).
+- ~~Интервал проверки зашит в код~~ — исправлено, читается из секции `Monitoring`.
 - Первое сообщение при старте («🟢 Server Monitor started») отправляется всегда — при частых
-  перезапусках это шум.
+  перезапусках это шум. Осталось как есть: для домашнего сервера скорее полезно, чем мешает.
 
 ---
 
@@ -373,12 +433,14 @@ flowchart TB
   одном сервисе.
 - Алертинг должен реагировать на **переход** состояния, а не на само состояние — иначе
   сообщения посыплются с каждой проверкой.
-- Состояние алертов, живущее только в памяти, теряется при перезапуске: дубли и потерянные
-  «восстановления».
-- Решение по одному замеру вызывает дребезг; лечится подтверждением длительности и разными
-  порогами на срабатывание и восстановление.
+- Состояние алертов нельзя держать только в памяти: при перезапуске получаются дубли и
+  потерянные «восстановления». У нас оно восстанавливается из журнала алертов.
+- Решение по одному замеру вызывает дребезг; лечится подтверждением длительности (сделано) и
+  разными порогами на срабатывание и восстановление (пока нет).
 - Пороговые проверки в принципе не видят падения узла — для этого нужен отдельный heartbeat.
-- Бот отвечает любому, кто ему напишет: проверку `Chat.Id` нужно добавить.
+  Это по-прежнему главный пробел алертинга.
+- Бот должен отвечать только в разрешённый чат — иначе `/status` раздаёт метрики сервера
+  любому желающему.
 
 Дальше: глава 08 — конфигурация и запуск: откуда берутся настройки, где хранить пароли и
 токены и как поднять весь проект с нуля.
