@@ -169,6 +169,14 @@ public class TelegramBotService : BackgroundService
         if (update.Message is not { Text: { } messageText } message)
             return;
 
+        // Отвечаем только в настроенный чат: иначе любой, кто найдёт бота,
+        // получит метрики сервера по команде /status.
+        if (!string.Equals(message.Chat.Id.ToString(), _chatId, StringComparison.Ordinal))
+        {
+            _logger.LogWarning("Ignored command from unauthorized chat {ChatId}.", message.Chat.Id);
+            return;
+        }
+
         var command = messageText.Split(' ')[0].ToLower();
 
         var response = command switch
