@@ -1,10 +1,17 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
 using ServerMonitor.Domain.Entities;
 
 namespace ServerMonitor.Infrastructure.Monitoring;
 
 public class MetricsCollector : IMetricsCollector
 {
+    /// <summary>
+    /// Интервал между двумя замерами счётчиков процессора. Загрузку нельзя измерить
+    /// мгновенно: ядро хранит накопленные счётчики, а загрузка — разница между двумя
+    /// моментами, делённая на прошедшее время.
+    /// </summary>
+    private static readonly TimeSpan CpuSampleInterval = TimeSpan.FromSeconds(1);
+
     public async Task<MetricSnapshot> CollectAsync(CancellationToken cancellationToken = default)
     {
         var snapshot = new MetricSnapshot
@@ -30,6 +37,8 @@ public class MetricsCollector : IMetricsCollector
         return snapshot;
     }
 
+    // ===== Linux =====
+
     private async Task CollectLinuxMetricsAsync(MetricSnapshot snapshot, CancellationToken cancellationToken)
     {
         await CollectLinuxMemoryAsync(snapshot, cancellationToken);
@@ -41,129 +50,45 @@ public class MetricsCollector : IMetricsCollector
     {
         var lines = await File.ReadAllLinesAsync("/proc/meminfo", cancellationToken);
 
-        double totalKb = 0;
-        double availableKb = 0;
+        var (totalKb, availableKb) = ProcParser.ParseMemInfo(lines);
 
-        foreach (var line in lines)
-        {
-            if (line.StartsWith("MemTotal:"))
-            {
-                totalKb = ParseMemInfoLine(line);
-            }
-            else if (line.StartsWith("MemAvailable:"))
-            {
-                availableKb = ParseMemInfoLine(line);
-            }
-        }
-
-        var usedKb = totalKb - availableKb;
-
+        // MemAvailable, а не MemFree: свободную память ядро отдаёт под дисковый кэш,
+        // поэтому MemFree на живой системе всегда близок к нулю.
         snapshot.MemoryTotalMb = totalKb / 1024.0;
-        snapshot.MemoryUsedMb = usedKb / 1024.0;
-    }
-
-    private static double ParseMemInfoLine(string line)
-    {
-        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        return double.Parse(parts[1]);
+        snapshot.MemoryUsedMb = (totalKb - availableKb) / 1024.0;
     }
 
     private async Task CollectLinuxUptimeAsync(MetricSnapshot snapshot, CancellationToken cancellationToken)
     {
         var content = await File.ReadAllTextAsync("/proc/uptime", cancellationToken);
 
-        var parts = content.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        snapshot.UptimeSeconds = double.Parse(parts[0]);
+        snapshot.UptimeSeconds = ProcParser.ParseUptimeSeconds(content);
     }
 
     private async Task CollectLinuxCpuAsync(MetricSnapshot snapshot, CancellationToken cancellationToken)
     {
         var first = await ReadCpuTimesAsync(cancellationToken);
 
-        await Task.Delay(1000, cancellationToken);
+        await Task.Delay(CpuSampleInterval, cancellationToken);
 
         var second = await ReadCpuTimesAsync(cancellationToken);
 
-        var totalDelta = second.Total - first.Total;
-        var idleDelta = second.Idle - first.Idle;
-
-        if (totalDelta <= 0)
-        {
-            snapshot.CpuUsagePercent = 0;
-            return;
-        }
-
-        var usage = (1.0 - (double)idleDelta / totalDelta) * 100.0;
-        snapshot.CpuUsagePercent = Math.Round(usage, 2);
+        snapshot.CpuUsagePercent = ProcParser.CalculateCpuUsagePercent(first, second);
     }
 
     private async Task<CpuTimes> ReadCpuTimesAsync(CancellationToken cancellationToken)
     {
         var lines = await File.ReadAllLinesAsync("/proc/stat", cancellationToken);
-        var cpuLine = lines[0];
 
-        var parts = cpuLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        long user = long.Parse(parts[1]);
-        long nice = long.Parse(parts[2]);
-        long system = long.Parse(parts[3]);
-        long idle = long.Parse(parts[4]);
-        long iowait = long.Parse(parts[5]);
-        long irq = long.Parse(parts[6]);
-        long softirq = long.Parse(parts[7]);
-
-        long idleTotal = idle + iowait;
-        long total = user + nice + system + idle + iowait + irq + softirq;
-
-        return new CpuTimes { Idle = idleTotal, Total = total };
-    }
-    private readonly struct CpuTimes
-    {
-        public long Idle { get; init; }
-        public long Total { get; init; }
-    }
-
-    private static void CollectDiskMetrics(MetricSnapshot snapshot)
-    {
-        DriveInfo? targetDrive = null;
-
-        foreach (var drive in DriveInfo.GetDrives())
+        if (lines.Length == 0)
         {
-            if (!drive.IsReady)
-            {
-                continue;
-            }
-
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                if (drive.Name == "/")
-                {
-                    targetDrive = drive;
-                    break;
-                }
-            }
-            else
-            {
-                targetDrive = drive;
-                break;
-            }
+            throw new FormatException("/proc/stat is empty.");
         }
 
-        if (targetDrive is null)
-        {
-            return;
-        }
-
-        double totalBytes = targetDrive.TotalSize;
-        double freeBytes = targetDrive.AvailableFreeSpace;
-        double usedBytes = totalBytes - freeBytes;
-
-        const double bytesPerGb = 1024.0 * 1024.0 * 1024.0;
-
-        snapshot.DiskTotalGb = totalBytes / bytesPerGb;
-        snapshot.DiskUsedGb = usedBytes / bytesPerGb;
+        return ProcParser.ParseCpuTimes(lines[0]);
     }
+
+    // ===== Windows =====
 
     private async Task CollectWindowsMetricsAsync(MetricSnapshot snapshot, CancellationToken cancellationToken)
     {
@@ -186,9 +111,24 @@ public class MetricsCollector : IMetricsCollector
         public ulong ullAvailExtendedVirtual;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FILETIME
+    {
+        public uint dwLowDateTime;
+        public uint dwHighDateTime;
+    }
+
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
+
+    /// <summary>
+    /// Системный аналог /proc/stat: суммарное время простоя, время ядра и время
+    /// пользовательских программ с момента загрузки. Время ядра уже включает простой.
+    /// </summary>
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetSystemTimes(out FILETIME lpIdleTime, out FILETIME lpKernelTime, out FILETIME lpUserTime);
 
     private static void CollectWindowsMemory(MetricSnapshot snapshot)
     {
@@ -199,7 +139,8 @@ public class MetricsCollector : IMetricsCollector
 
         if (!GlobalMemoryStatusEx(ref memStatus))
         {
-            return;
+            throw new InvalidOperationException(
+                $"GlobalMemoryStatusEx failed with Win32 error {Marshal.GetLastWin32Error()}.");
         }
 
         const double bytesPerMb = 1024.0 * 1024.0;
@@ -213,43 +154,90 @@ public class MetricsCollector : IMetricsCollector
 
     private static async Task CollectWindowsCpuAsync(MetricSnapshot snapshot, CancellationToken cancellationToken)
     {
-        var startCpu = GetTotalProcessorTime();
-        var startTime = DateTime.UtcNow;
+        var first = ReadWindowsCpuTimes();
 
-        await Task.Delay(1000, cancellationToken);
+        await Task.Delay(CpuSampleInterval, cancellationToken);
 
-        var endCpu = GetTotalProcessorTime();
-        var endTime = DateTime.UtcNow;
+        var second = ReadWindowsCpuTimes();
 
-        var cpuUsedMs = (endCpu - startCpu).TotalMilliseconds;
-        var elapsedMs = (endTime - startTime).TotalMilliseconds;
-
-        var cpuCount = Environment.ProcessorCount;
-
-        var usage = cpuUsedMs / (elapsedMs * cpuCount) * 100.0;
-
-        snapshot.CpuUsagePercent = Math.Round(Math.Clamp(usage, 0, 100), 2);
+        snapshot.CpuUsagePercent = ProcParser.CalculateCpuUsagePercent(first, second);
     }
 
-    private static TimeSpan GetTotalProcessorTime()
+    private static CpuTimes ReadWindowsCpuTimes()
     {
-        var total = TimeSpan.Zero;
-        foreach (var process in System.Diagnostics.Process.GetProcesses())
+        if (!GetSystemTimes(out var idleTime, out var kernelTime, out var userTime))
         {
-            try
-            {
-                total += process.TotalProcessorTime;
-            }
-            catch
-            {
-
-            }
+            throw new InvalidOperationException(
+                $"GetSystemTimes failed with Win32 error {Marshal.GetLastWin32Error()}.");
         }
-        return total;
+
+        // kernelTime уже содержит время простоя, поэтому общее время — это kernel + user.
+        var idle = ToTicks(idleTime);
+        var total = ToTicks(kernelTime) + ToTicks(userTime);
+
+        return new CpuTimes { Idle = idle, Total = total };
+    }
+
+    /// <summary>Склеивает две 32-битные половины FILETIME в одно 64-битное значение.</summary>
+    private static long ToTicks(FILETIME fileTime)
+    {
+        return (long)(((ulong)fileTime.dwHighDateTime << 32) | fileTime.dwLowDateTime);
     }
 
     private static void CollectWindowsUptime(MetricSnapshot snapshot)
     {
         snapshot.UptimeSeconds = Environment.TickCount64 / 1000.0;
+    }
+
+    // ===== Диск (одинаково для обеих систем) =====
+
+    private static void CollectDiskMetrics(MetricSnapshot snapshot)
+    {
+        var targetDrive = FindSystemDrive();
+
+        if (targetDrive is null)
+        {
+            return;
+        }
+
+        double totalBytes = targetDrive.TotalSize;
+        double freeBytes = targetDrive.AvailableFreeSpace;
+        double usedBytes = totalBytes - freeBytes;
+
+        const double bytesPerGb = 1024.0 * 1024.0 * 1024.0;
+
+        snapshot.DiskTotalGb = totalBytes / bytesPerGb;
+        snapshot.DiskUsedGb = usedBytes / bytesPerGb;
+    }
+
+    /// <summary>
+    /// Ищет раздел, на котором стоит система. Раньше здесь брался «первый готовый» диск —
+    /// на машине с несколькими томами это была лотерея.
+    /// </summary>
+    private static DriveInfo? FindSystemDrive()
+    {
+        var readyDrives = DriveInfo.GetDrives()
+            .Where(drive => drive.IsReady)
+            .ToList();
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return readyDrives.FirstOrDefault(drive => drive.Name == "/");
+        }
+
+        var systemRoot = Path.GetPathRoot(Environment.SystemDirectory);
+
+        if (!string.IsNullOrEmpty(systemRoot))
+        {
+            var systemDrive = readyDrives.FirstOrDefault(drive =>
+                string.Equals(drive.Name, systemRoot, StringComparison.OrdinalIgnoreCase));
+
+            if (systemDrive is not null)
+            {
+                return systemDrive;
+            }
+        }
+
+        return readyDrives.FirstOrDefault();
     }
 }
