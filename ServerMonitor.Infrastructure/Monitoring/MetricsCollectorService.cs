@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using ServerMonitor.Collection;
 using ServerMonitor.Infrastructure.Data;
 
 namespace ServerMonitor.Infrastructure.Monitoring;
@@ -11,7 +12,8 @@ public class MetricsCollectorService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IMetricsCollector _collector;
     private readonly ILogger<MetricsCollectorService> _logger;
-
+    // Сервис доживает до этапа, на котором сбор полностью переедет в агента,
+    // поэтому интервал снова стал константой — настраивать его больше негде.
     private readonly TimeSpan _interval = TimeSpan.FromSeconds(5);
 
     public MetricsCollectorService(

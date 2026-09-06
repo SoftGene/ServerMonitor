@@ -38,6 +38,9 @@ namespace ServerMonitor.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("ServerId")
+                        .HasColumnType("integer");
+
                     b.Property<double>("Threshold")
                         .HasColumnType("double precision");
 
@@ -48,6 +51,10 @@ namespace ServerMonitor.Infrastructure.Migrations
                         .HasColumnType("double precision");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ServerId");
+
+                    b.HasIndex("TimestampUtc");
 
                     b.ToTable("Alerts");
                 });
@@ -110,6 +117,9 @@ namespace ServerMonitor.Infrastructure.Migrations
                     b.Property<double>("MemoryUsedMb")
                         .HasColumnType("double precision");
 
+                    b.Property<int>("ServerId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("TimestampUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -118,7 +128,70 @@ namespace ServerMonitor.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TimestampUtc");
+
+                    b.HasIndex("ServerId", "TimestampUtc");
+
                     b.ToTable("MetricSnapshots");
+                });
+
+            modelBuilder.Entity("ServerMonitor.Domain.Entities.Server", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AgentVersion")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ApiKeyHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("LastSeenUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OperatingSystem")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("RegisteredAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApiKeyHash");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.ToTable("Servers");
+                });
+
+            modelBuilder.Entity("ServerMonitor.Domain.Entities.Alert", b =>
+                {
+                    b.HasOne("ServerMonitor.Domain.Entities.Server", null)
+                        .WithMany()
+                        .HasForeignKey("ServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ServerMonitor.Domain.Entities.MetricSnapshot", b =>
+                {
+                    b.HasOne("ServerMonitor.Domain.Entities.Server", null)
+                        .WithMany()
+                        .HasForeignKey("ServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

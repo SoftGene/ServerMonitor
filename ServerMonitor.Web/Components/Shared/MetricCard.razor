@@ -1,15 +1,22 @@
 ﻿<div class="metric-card">
     <div class="metric-top">
-        <div class="metric-icon" style="background: @IconBg; color: @IconColor;">
-            @((MarkupString)Icon)
-        </div>
-        <div class="metric-title">@Title</div>
+        <span class="metric-icon">@((MarkupString)Icon)</span>
+        <span class="metric-title">@Title</span>
     </div>
     <div class="metric-value">@Value</div>
+    @if (!string.IsNullOrEmpty(Spark))
+    {
+        <svg class="metric-spark" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
+            <polyline points="@Spark" vector-effect="non-scaling-stroke" />
+        </svg>
+    }
     @if (Percent is not null)
     {
-        <div class="metric-bar-bg">
-            <div class="metric-bar-fill" style="width: @Percent%; background: @BarColor;"></div>
+        <div class="metric-scale">
+            <div class="metric-bar-fill" style="width: @(Percent.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%; background: @BarColor;"></div>
+            <span class="scale-tick" style="left: 25%"></span>
+            <span class="scale-tick" style="left: 50%"></span>
+            <span class="scale-tick" style="left: 75%"></span>
         </div>
     }
     @if (!string.IsNullOrEmpty(Subtitle))
@@ -23,6 +30,7 @@
     [Parameter] public string Value { get; set; } = string.Empty;
     [Parameter] public double? Percent { get; set; }
     [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string? Spark { get; set; }
     [Parameter] public string Icon { get; set; } = "";
     [Parameter] public string IconBg { get; set; } = "rgba(16, 185, 129, 0.12)";
     [Parameter] public string IconColor { get; set; } = "#10b981";

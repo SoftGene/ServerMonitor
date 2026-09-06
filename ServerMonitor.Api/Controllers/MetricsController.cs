@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServerMonitor.Domain.Entities;
 using ServerMonitor.Infrastructure.Data;
@@ -17,25 +17,11 @@ public class MetricsController : ControllerBase
         _dbContext = dbContext;
     }
 
-    [HttpGet("latest")]
-    public async Task<ActionResult<MetricSnapshot>> GetLatest(CancellationToken cancellationToken)
-    {
-        var latest = await _dbContext.MetricSnapshots
-            .OrderByDescending(m => m.TimestampUtc)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (latest is null)
-        {
-            return NotFound("No metrics collected yet.");
-        }
-
-        return Ok(latest);
-    }
-
     [HttpGet("status")]
     public async Task<ActionResult<ServerStatusDto>> GetStatus(CancellationToken cancellationToken)
     {
         var latest = await _dbContext.MetricSnapshots
+            .AsNoTracking()
             .OrderByDescending(m => m.TimestampUtc)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -50,10 +36,10 @@ public class MetricsController : ControllerBase
             CpuUsagePercent = latest.CpuUsagePercent,
             MemoryUsedMb = Math.Round(latest.MemoryUsedMb, 1),
             MemoryTotalMb = Math.Round(latest.MemoryTotalMb, 1),
-            MemoryUsagePercent = latest.MemoryTotalMb > 0 ? Math.Round((latest.MemoryUsedMb / latest.MemoryTotalMb) * 100, 1) : 0,
+            MemoryUsagePercent = latest.MemoryUsagePercent,
             DiskUsedGb = Math.Round(latest.DiskUsedGb, 1),
             DiskTotalGb = Math.Round(latest.DiskTotalGb, 1),
-            DiskUsagePercent = latest.DiskTotalGb > 0 ? Math.Round((latest.DiskUsedGb / latest.DiskTotalGb) * 100, 1) : 0,
+            DiskUsagePercent = latest.DiskUsagePercent,
             Uptime = FormatUpTime(latest.UptimeSeconds),
         };
 
@@ -77,12 +63,15 @@ public class MetricsController : ControllerBase
         }
 
         var items = await _dbContext.MetricSnapshots
+            .AsNoTracking()
             .OrderByDescending(m => m.TimestampUtc)
             .Take(count)
             .Select(m => new MetricHistoryItemDto
             {
                 TimestampUtc = m.TimestampUtc,
                 CpuUsagePercent = m.CpuUsagePercent,
+                // Здесь нельзя использовать m.MemoryUsagePercent: проекция выполняется
+                // на стороне PostgreSQL, а вычисляемое свойство C# в SQL не переводится.
                 MemoryUsagePercent = m.MemoryTotalMb > 0 ? Math.Round(m.MemoryUsedMb / m.MemoryTotalMb * 100, 1) : 0,
                 DiskUsagePercent = m.DiskTotalGb > 0 ? Math.Round(m.DiskUsedGb / m.DiskTotalGb * 100, 1) : 0
             })
@@ -104,8 +93,7 @@ public class MetricsController : ControllerBase
         if (page < 1) page = 1;
         if (pageSize < 1 || pageSize > 100) pageSize = 20;
 
-
-        IQueryable<MetricSnapshot> query = _dbContext.MetricSnapshots;
+        IQueryable<MetricSnapshot> query = _dbContext.MetricSnapshots.AsNoTracking();
 
         if (from.HasValue)
         {
@@ -146,6 +134,7 @@ public class MetricsController : ControllerBase
             {
                 TimestampUtc = m.TimestampUtc,
                 CpuUsagePercent = m.CpuUsagePercent,
+                // См. комментарий в GetHistory: проекция считается в SQL.
                 MemoryUsagePercent = m.MemoryTotalMb > 0
                     ? Math.Round(m.MemoryUsedMb / m.MemoryTotalMb * 100, 1)
                     : 0,

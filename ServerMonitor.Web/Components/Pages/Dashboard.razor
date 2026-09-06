@@ -1,4 +1,5 @@
 ﻿@page "/dashboard"
+@using System.Globalization
 @using ServerMonitor.Web.Models
 @using ServerMonitor.Web.Services
 @using ServerMonitor.Web.Components.Shared
@@ -15,22 +16,28 @@
             {
                 <p class="dash-subtitle">
                     <span class="live-dot @(isPaused ? "paused" : "")"></span>
-                    @(isPaused ? "Paused" : "Live") · updated @status.TimeStampUtc.ToLocalTime().ToString("HH:mm:ss")
+                    @(isPaused ? "Paused" : "Live") · upd @status.TimeStampUtc.ToLocalTime().ToString("HH:mm:ss")<span class="term-cursor" aria-hidden="true"></span>
                 </p>
             }
         </div>
         <div class="header-actions">
+            <div class="cube-wrap" title="@(isPaused ? "Paused" : "Live")" aria-hidden="true">
+                <div class="cube @(isPaused ? "paused" : "")">
+                    <span class="cf cf-1"></span><span class="cf cf-2"></span><span class="cf cf-3"></span>
+                    <span class="cf cf-4"></span><span class="cf cf-5"></span><span class="cf cf-6"></span>
+                </div>
+            </div>
             <button class="icon-btn @(isRefreshing ? "spinning" : "")" @onclick="RefreshNow" title="Refresh now">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>
             </button>
             <button class="icon-btn" @onclick="TogglePause" title="@(isPaused ? "Resume" : "Pause")">
                 @if (isPaused)
                 {
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
                 }
                 else
                 {
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
                 }
             </button>
         </div>
@@ -38,39 +45,31 @@
 
     @if (loadError is not null)
     {
-        <div class="state-msg error">⚠ @loadError</div>
+        <div class="state-msg error">[ERR] @loadError</div>
     }
     else if (status is null)
     {
-        <div class="state-msg">Loading...</div>
+        <div class="state-msg">Loading…</div>
     }
     else
     {
-        <div class="cards-grid">
-            <div class="card-anim" style="animation-delay: 0ms">
-                <MetricCard Title="CPU Usage" Value="@($"{status.CpuUsagePercent}%")" Percent="status.CpuUsagePercent"
-                            Subtitle="@StatLine(h => h.CpuUsagePercent)"
-                            Icon="@IconCpu" IconBg="rgba(16, 185, 129, 0.12)" IconColor="#10b981" />
-            </div>
-            <div class="card-anim" style="animation-delay: 80ms">
-                <MetricCard Title="Memory" Value="@($"{status.MemoryUsagePercent}%")" Percent="status.MemoryUsagePercent"
-                            Subtitle="@($"{status.MemoryUsedMb:F0} / {status.MemoryTotalMb:F0} MB")"
-                            Icon="@IconMemory" IconBg="rgba(59, 130, 246, 0.12)" IconColor="#3b82f6" />
-            </div>
-            <div class="card-anim" style="animation-delay: 160ms">
-                <MetricCard Title="Disk" Value="@($"{status.DiskUsagePercent}%")" Percent="status.DiskUsagePercent"
-                            Subtitle="@($"{status.DiskUsedGb:F1} / {status.DiskTotalGb:F1} GB")"
-                            Icon="@IconDisk" IconBg="rgba(139, 92, 246, 0.12)" IconColor="#8b5cf6" />
-            </div>
-            <div class="card-anim" style="animation-delay: 240ms">
-                <MetricCard Title="Uptime" Value="@status.Uptime"
-                            Icon="@IconClock" IconBg="rgba(245, 158, 11, 0.12)" IconColor="#f59e0b" />
-            </div>
+        <div class="section-label"><span class="section-no">01</span>Live metrics</div>
+        <div class="metric-panel">
+            <MetricCard Title="CPU Usage" Value="@($"{status.CpuUsagePercent}%")" Percent="status.CpuUsagePercent"
+                        Subtitle="@StatLine(h => h.CpuUsagePercent)" Icon="@IconCpu"
+                        Spark="@ChartPoints(h => h.CpuUsagePercent, 100, 24)" />
+            <MetricCard Title="Memory" Value="@($"{status.MemoryUsagePercent}%")" Percent="status.MemoryUsagePercent"
+                        Subtitle="@($"{status.MemoryUsedMb:F0} / {status.MemoryTotalMb:F0} MB")" Icon="@IconMemory"
+                        Spark="@ChartPoints(h => h.MemoryUsagePercent, 100, 24)" />
+            <MetricCard Title="Disk" Value="@($"{status.DiskUsagePercent}%")" Percent="status.DiskUsagePercent"
+                        Subtitle="@($"{status.DiskUsedGb:F1} / {status.DiskTotalGb:F1} GB")" Icon="@IconDisk"
+                        Spark="@ChartPoints(h => h.DiskUsagePercent, 100, 24)" />
+            <MetricCard Title="Uptime" Value="@status.Uptime" Icon="@IconClock" />
         </div>
 
-        <div class="chart-card card-anim" style="animation-delay: 320ms">
+        <div class="chart-panel">
             <div class="chart-header">
-                <h2>Performance History</h2>
+                <div class="section-label no-rule"><span class="section-no">02</span>Performance history</div>
                 <div class="period-switch">
                     @foreach (var p in periods)
                     {
@@ -78,17 +77,118 @@
                     }
                 </div>
             </div>
-            <RadzenChart>
-                <RadzenLineSeries Data="history" CategoryProperty="TimestampUtc" ValueProperty="CpuUsagePercent" Title="CPU %" Stroke="#10b981" StrokeWidth="2.5" />
-                <RadzenLineSeries Data="history" CategoryProperty="TimestampUtc" ValueProperty="MemoryUsagePercent" Title="Memory %" Stroke="#3b82f6" StrokeWidth="2.5" />
-                <RadzenLineSeries Data="history" CategoryProperty="TimestampUtc" ValueProperty="DiskUsagePercent" Title="Disk %" Stroke="#8b5cf6" StrokeWidth="2.5" />
-                <RadzenCategoryAxis Formatter="@FormatTime" />
-                <RadzenValueAxis Min="0" Max="100" Step="25">
-                    <RadzenAxisTitle Text="Usage %" />
-                </RadzenValueAxis>
-                <RadzenLegend Position="LegendPosition.Bottom" />
-            </RadzenChart>
+            @if (history.Count > 1)
+            {
+                <div class="scope-stack">
+                    <div class="scope-channel ch-cpu">
+                        <div class="scope-meta">
+                            <span class="ch-id">CH1</span>
+                            <span class="ch-name">CPU</span>
+                            <span class="ch-val">@status.CpuUsagePercent%</span>
+                        </div>
+                        <div class="scope-view">
+                            <svg viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true">
+                                <line class="scope-grid" x1="0" y1="8" x2="100" y2="8" vector-effect="non-scaling-stroke" />
+                                <line class="scope-grid" x1="0" y1="16" x2="100" y2="16" vector-effect="non-scaling-stroke" />
+                                <line class="scope-grid" x1="0" y1="24" x2="100" y2="24" vector-effect="non-scaling-stroke" />
+                                <line class="scope-grid v" x1="25" y1="0" x2="25" y2="32" vector-effect="non-scaling-stroke" />
+                                <line class="scope-grid v" x1="50" y1="0" x2="50" y2="32" vector-effect="non-scaling-stroke" />
+                                <line class="scope-grid v" x1="75" y1="0" x2="75" y2="32" vector-effect="non-scaling-stroke" />
+                                <polygon class="scope-fill" points="0,32 @ChartPoints(h => h.CpuUsagePercent) 100,32" />
+                                <polyline class="scope-line" points="@ChartPoints(h => h.CpuUsagePercent)" vector-effect="non-scaling-stroke" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="scope-channel ch-mem">
+                        <div class="scope-meta">
+                            <span class="ch-id">CH2</span>
+                            <span class="ch-name">MEM</span>
+                            <span class="ch-val">@status.MemoryUsagePercent%</span>
+                        </div>
+                        <div class="scope-view">
+                            <svg viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true">
+                                <line class="scope-grid" x1="0" y1="8" x2="100" y2="8" vector-effect="non-scaling-stroke" />
+                                <line class="scope-grid" x1="0" y1="16" x2="100" y2="16" vector-effect="non-scaling-stroke" />
+                                <line class="scope-grid" x1="0" y1="24" x2="100" y2="24" vector-effect="non-scaling-stroke" />
+                                <line class="scope-grid v" x1="25" y1="0" x2="25" y2="32" vector-effect="non-scaling-stroke" />
+                                <line class="scope-grid v" x1="50" y1="0" x2="50" y2="32" vector-effect="non-scaling-stroke" />
+                                <line class="scope-grid v" x1="75" y1="0" x2="75" y2="32" vector-effect="non-scaling-stroke" />
+                                <polygon class="scope-fill" points="0,32 @ChartPoints(h => h.MemoryUsagePercent) 100,32" />
+                                <polyline class="scope-line" points="@ChartPoints(h => h.MemoryUsagePercent)" vector-effect="non-scaling-stroke" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="scope-channel ch-disk">
+                        <div class="scope-meta">
+                            <span class="ch-id">CH3</span>
+                            <span class="ch-name">DISK</span>
+                            <span class="ch-val">@status.DiskUsagePercent%</span>
+                        </div>
+                        <div class="scope-view">
+                            <svg viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true">
+                                <line class="scope-grid" x1="0" y1="8" x2="100" y2="8" vector-effect="non-scaling-stroke" />
+                                <line class="scope-grid" x1="0" y1="16" x2="100" y2="16" vector-effect="non-scaling-stroke" />
+                                <line class="scope-grid" x1="0" y1="24" x2="100" y2="24" vector-effect="non-scaling-stroke" />
+                                <line class="scope-grid v" x1="25" y1="0" x2="25" y2="32" vector-effect="non-scaling-stroke" />
+                                <line class="scope-grid v" x1="50" y1="0" x2="50" y2="32" vector-effect="non-scaling-stroke" />
+                                <line class="scope-grid v" x1="75" y1="0" x2="75" y2="32" vector-effect="non-scaling-stroke" />
+                                <polygon class="scope-fill" points="0,32 @ChartPoints(h => h.DiskUsagePercent) 100,32" />
+                                <polyline class="scope-line" points="@ChartPoints(h => h.DiskUsagePercent)" vector-effect="non-scaling-stroke" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="scope-time">
+                        <span>@history[0].TimestampUtc.ToString("HH:mm")</span>
+                        <span>@history[history.Count - 1].TimestampUtc.ToString("HH:mm")</span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="scope-empty">Collecting samples…</div>
+            }
         </div>
+
+        @if (history.Count > 0)
+        {
+            <div class="stats-section">
+                <div class="section-label"><span class="section-no">03</span>Session stats</div>
+                <div class="stats-strip">
+                    <div class="stat">
+                        <span class="stat-k">CPU AVG</span>
+                        <span class="stat-v">@history.Average(h => h.CpuUsagePercent).ToString("F1")%</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-k">CPU MAX</span>
+                        <span class="stat-v">@history.Max(h => h.CpuUsagePercent).ToString("F1")%</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-k">MEM AVG</span>
+                        <span class="stat-v">@history.Average(h => h.MemoryUsagePercent).ToString("F1")%</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-k">MEM MAX</span>
+                        <span class="stat-v">@history.Max(h => h.MemoryUsagePercent).ToString("F1")%</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-k">DISK AVG</span>
+                        <span class="stat-v">@history.Average(h => h.DiskUsagePercent).ToString("F1")%</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-k">DISK MAX</span>
+                        <span class="stat-v">@history.Max(h => h.DiskUsagePercent).ToString("F1")%</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-k">SAMPLES</span>
+                        <span class="stat-v">@history.Count</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-k">UPTIME</span>
+                        <span class="stat-v">@status.Uptime</span>
+                    </div>
+                </div>
+            </div>
+        }
     }
 </div>
 
@@ -97,7 +197,6 @@
     private List<MetricHistoryItem> history = new();
     private string? loadError;
     private Timer? refreshTimer;
-    private RadzenChart? chart;
 
     private bool isPaused = false;
     private bool isRefreshing = false;
@@ -166,10 +265,21 @@
         return $"avg {avg:F1}% · max {max:F1}%";
     }
 
-    private string FormatTime(object value)
+    // Точки для SVG-графиков (инвариантный формат — дробная точка обязательна в CSS/SVG)
+    private string ChartPoints(Func<MetricHistoryItem, double> selector, double width = 100, double height = 32)
     {
-        if (value is DateTime dt) return dt.ToString("HH:mm");
-        return value?.ToString() ?? "";
+        if (history.Count < 2) return "";
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < history.Count; i++)
+        {
+            var x = i * width / (history.Count - 1);
+            var y = height - Math.Clamp(selector(history[i]), 0, 100) * height / 100.0;
+            if (i > 0) sb.Append(' ');
+            sb.Append(x.ToString("0.##", CultureInfo.InvariantCulture));
+            sb.Append(',');
+            sb.Append(y.ToString("0.##", CultureInfo.InvariantCulture));
+        }
+        return sb.ToString();
     }
 
     private const string IconCpu = "<svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='4' y='4' width='16' height='16' rx='2'/><rect x='9' y='9' width='6' height='6'/><path d='M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3'/></svg>";

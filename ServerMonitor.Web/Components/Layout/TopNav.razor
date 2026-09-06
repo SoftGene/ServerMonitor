@@ -1,6 +1,7 @@
 ﻿@using ServerMonitor.Web.Components.Shared
 @inject IJSRuntime JS
 @inject NavigationManager Nav
+@inject ILogger<TopNav> Logger
 @implements IDisposable
 
 <header class="topnav">
@@ -11,7 +12,7 @@
                     <path d="M2 12h4l2-7 4 14 2-7h6" />
                 </svg>
             </span>
-            <span class="brand-text">Server<span class="brand-accent">ML</span></span>
+            <span class="brand-text">SERVER<span class="brand-accent">_ML</span></span>
         </div>
 
         <nav class="nav-links" id="navPill">
@@ -48,13 +49,35 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await JS.InvokeVoidAsync("navPill.update");
+        await UpdateIndicatorAsync();
     }
 
+    // Обработчик события обязан возвращать void, поэтому это единственный законный
+    // случай async void. Исключение отсюда некому поймать — ловим сами, иначе оно
+    // уйдёт в среду выполнения и может уронить процесс.
     private async void OnLocationChanged(object? sender, EventArgs e)
     {
-        await JS.InvokeVoidAsync("navPill.update");
-        await InvokeAsync(StateHasChanged);
+        try
+        {
+            await UpdateIndicatorAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to update the navigation indicator after navigation.");
+        }
+    }
+
+    private async Task UpdateIndicatorAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navPill.update");
+        }
+        catch (JSDisconnectedException)
+        {
+            // Соединение с браузером уже закрыто — обновлять нечего.
+        }
     }
 
     public void Dispose()

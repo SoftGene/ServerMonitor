@@ -1,8 +1,7 @@
-/* CSS for Alerts component */
 .alerts-page {
     max-width: 900px;
     margin: 0 auto;
-    padding: 32px;
+    padding: 36px 32px 48px;
 }
 
 .page-header {
@@ -13,11 +12,11 @@
 }
 
 .page-header h1 {
-    font-size: 28px;
-    font-weight: 700;
+    font-size: 26px;
+    font-weight: 600;
     color: var(--text);
     margin: 0;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
 }
 
 .page-sub {
@@ -29,21 +28,20 @@
 .refresh-btn {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    width: 44px;
-    height: 44px;
+    border-radius: var(--radius);
+    width: 38px;
+    height: 38px;
     cursor: pointer;
     color: var(--text-muted);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
-    box-shadow: var(--shadow);
+    transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 .refresh-btn:hover {
     color: var(--accent);
-    box-shadow: var(--shadow-hover);
+    border-color: var(--accent);
 }
 
 .refresh-btn.spinning svg {
@@ -51,39 +49,64 @@
 }
 
 @keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
+    to { transform: rotate(360deg); }
 }
 
+/* Журнал событий: вертикальная ось + узлы */
 .alerts-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    border-left: 1px solid var(--border);
+    margin-left: 8px;
+    padding-left: 24px;
 }
 
 .alert-item {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 16px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 16px 20px;
-    box-shadow: var(--shadow);
-    border-left: 4px solid var(--border);
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
 }
 
-.alert-item.triggered {
-    border-left-color: #ef4444;
+.alert-item:last-child {
+    border-bottom: none;
 }
 
-.alert-item.recovered {
-    border-left-color: #10b981;
+.alert-item::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 7px;
+    height: 7px;
+    background: var(--bg);
+    border: 1px solid var(--text-soft);
+}
+
+.alert-item.triggered::before {
+    background: var(--status-crit);
+    border-color: var(--status-crit);
+}
+
+.alert-item.recovered::before {
+    background: var(--status-ok);
+    border-color: var(--status-ok);
 }
 
 .alert-icon {
-    font-size: 22px;
+    display: flex;
+    align-items: center;
+}
+
+.alert-item.triggered .alert-icon {
+    color: var(--status-crit);
+}
+
+.alert-item.recovered .alert-icon {
+    color: var(--status-ok);
 }
 
 .alert-body {
@@ -91,55 +114,60 @@
 }
 
 .alert-title {
-    font-size: 15px;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 500;
     color: var(--text);
 }
 
 .alert-detail {
-    font-size: 13px;
+    font-family: var(--font-mono);
+    font-size: 12px;
     color: var(--text-muted);
-    margin-top: 2px;
+    margin-top: 3px;
 }
 
 .alert-time {
-    font-size: 13px;
+    font-family: var(--font-mono);
+    font-size: 12px;
     color: var(--text-soft);
     white-space: nowrap;
 }
 
 .empty-state {
     text-align: center;
-    padding: 60px 20px;
+    padding: 56px 20px;
     background: var(--surface);
-    border-radius: 20px;
     border: 1px solid var(--border);
-    box-shadow: var(--shadow);
+    border-radius: var(--radius);
 }
 
 .empty-icon {
-    width: 56px;
-    height: 56px;
-    margin: 0 auto 16px;
+    width: 44px;
+    height: 44px;
+    margin: 0 auto 14px;
     background: var(--accent-soft);
     color: var(--accent);
-    border-radius: 50%;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 28px;
-    font-weight: 700;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
 }
 
 .empty-state h3 {
     color: var(--text);
-    font-size: 18px;
+    font-size: 16px;
+    font-weight: 600;
     margin: 0 0 8px;
 }
 
 .empty-state p {
     color: var(--text-muted);
-    font-size: 14px;
+    font-size: 13px;
     margin: 0;
     max-width: 400px;
     margin-inline: auto;

@@ -1,6 +1,10 @@
 <Solution>
+  <Folder Name="/SeverMonitor.Domain/" />
+  <Project Path="ServerMonitor.Agent/ServerMonitor.Agent.csproj" />
   <Project Path="ServerMonitor.Api/ServerMonitor.Api.csproj" />
+  <Project Path="ServerMonitor.Collection/ServerMonitor.Collection.csproj" />
   <Project Path="ServerMonitor.Infrastructure/ServerMonitor.Infrastructure.csproj" />
+  <Project Path="ServerMonitor.Tests/ServerMonitor.Tests.csproj" />
   <Project Path="ServerMonitor.Web/ServerMonitor.Web.csproj" Id="61b15e43-415c-46b1-bb22-4cc641e32f63" />
-  <Project Path="SeverMonitor.Domain/SeverMonitor.Domain.csproj" />
+  <Project Path="SeverMonitor.Domain/ServerMonitor.Domain.csproj" />
 </Solution>
