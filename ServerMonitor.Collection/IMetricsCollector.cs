@@ -1,6 +1,6 @@
 ﻿using ServerMonitor.Domain.Entities;
 
-namespace ServerMonitor.Infrastructure.Monitoring;
+namespace ServerMonitor.Collection;
 
 public interface IMetricsCollector
 {

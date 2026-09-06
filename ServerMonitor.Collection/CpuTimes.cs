@@ -1,4 +1,4 @@
-namespace ServerMonitor.Infrastructure.Monitoring;
+namespace ServerMonitor.Collection;
 
 /// <summary>
 /// Накопленные счётчики времени процессора на момент замера.
