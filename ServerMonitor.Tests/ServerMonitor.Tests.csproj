@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ServerMonitor.Infrastructure\ServerMonitor.Infrastructure.csproj" />
     <ProjectReference Include="..\ServerMonitor.Collection\ServerMonitor.Collection.csproj" />
+    <ProjectReference Include="..\ServerMonitor.Agent\ServerMonitor.Agent.csproj" />
   </ItemGroup>
 
 </Project>

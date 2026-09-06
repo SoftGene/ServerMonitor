@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/SeverMonitor.Domain/" />
+  <Project Path="ServerMonitor.Agent/ServerMonitor.Agent.csproj" />
   <Project Path="ServerMonitor.Api/ServerMonitor.Api.csproj" />
   <Project Path="ServerMonitor.Collection/ServerMonitor.Collection.csproj" />
   <Project Path="ServerMonitor.Infrastructure/ServerMonitor.Infrastructure.csproj" />
