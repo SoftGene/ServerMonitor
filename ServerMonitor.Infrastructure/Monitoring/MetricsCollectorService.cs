@@ -2,7 +2,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using ServerMonitor.Collection;
 using ServerMonitor.Infrastructure.Data;
 
@@ -13,18 +12,18 @@ public class MetricsCollectorService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IMetricsCollector _collector;
     private readonly ILogger<MetricsCollectorService> _logger;
-    private readonly TimeSpan _interval;
+    // Сервис доживает до этапа, на котором сбор полностью переедет в агента,
+    // поэтому интервал снова стал константой — настраивать его больше негде.
+    private readonly TimeSpan _interval = TimeSpan.FromSeconds(5);
 
     public MetricsCollectorService(
         IServiceScopeFactory scopeFactory,
         IMetricsCollector collector,
-        ILogger<MetricsCollectorService> logger,
-        IOptions<MonitoringOptions> options)
+        ILogger<MetricsCollectorService> logger)
     {
         _scopeFactory = scopeFactory;
         _collector = collector;
         _logger = logger;
-        _interval = options.Value.CollectInterval;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
