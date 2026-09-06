@@ -18,6 +18,9 @@ public enum AlertKind
 public class Alert
 {
     public int Id { get; set; }
+
+    /// <summary>Машина, к которой относится событие.</summary>
+    public int ServerId { get; set; }
     public DateTime TimestampUtc { get; set; }
 
     /// <summary>
