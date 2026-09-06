@@ -13,10 +13,19 @@ public class AppDbContext : DbContext
     public DbSet<MetricSnapshot> MetricSnapshots => Set<MetricSnapshot>();
     public DbSet<Alert> Alerts => Set<Alert>();
     public DbSet<AppSettings> AppSettings => Set<AppSettings>();
+    public DbSet<Server> Servers => Set<Server>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<Server>(entity =>
+        {
+            // Публичный идентификатор ищется по каждому запросу от UI, ключ — по каждому
+            // приёму метрик; оба должны быть проиндексированы.
+            entity.HasIndex(s => s.PublicId).IsUnique();
+            entity.HasIndex(s => s.ApiKeyHash);
+        });
 
         modelBuilder.Entity<MetricSnapshot>(entity =>
         {
@@ -27,6 +36,15 @@ public class AppDbContext : DbContext
             // По этой колонке сортирует и фильтрует каждый запрос проекта. Без индекса
             // PostgreSQL читает и сортирует всю таблицу, чтобы отдать одну последнюю строку.
             entity.HasIndex(m => m.TimestampUtc);
+
+            // Запросы дашборда всегда идут по одной машине и с сортировкой по времени —
+            // составной индекс покрывает их целиком.
+            entity.HasIndex(m => new { m.ServerId, m.TimestampUtc });
+
+            entity.HasOne<Server>()
+                .WithMany()
+                .HasForeignKey(m => m.ServerId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Alert>(entity =>
@@ -44,6 +62,11 @@ public class AppDbContext : DbContext
                     value => Enum.Parse<AlertKind>(value, ignoreCase: true));
 
             entity.HasIndex(a => a.TimestampUtc);
+
+            entity.HasOne<Server>()
+                .WithMany()
+                .HasForeignKey(a => a.ServerId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<AppSettings>().HasData(new AppSettings
