@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using ServerMonitor.Infrastructure.Data;
+using ServerMonitor.Collection;
 using ServerMonitor.Infrastructure.Monitoring;
 using ServerMonitor.Infrastructure.Telegram;
 

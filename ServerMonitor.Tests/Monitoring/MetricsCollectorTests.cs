@@ -1,5 +1,5 @@
 using System.Runtime.InteropServices;
-using ServerMonitor.Infrastructure.Monitoring;
+using ServerMonitor.Collection;
 
 namespace ServerMonitor.Tests.Monitoring;
 

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using ServerMonitor.Collection;
 using ServerMonitor.Infrastructure.Data;
 
 namespace ServerMonitor.Infrastructure.Monitoring;

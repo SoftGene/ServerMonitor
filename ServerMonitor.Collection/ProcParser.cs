@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace ServerMonitor.Infrastructure.Monitoring;
+namespace ServerMonitor.Collection;
 
 /// <summary>
 /// Разбор текстовых форматов Linux /proc и вычисление загрузки процессора.

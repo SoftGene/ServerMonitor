@@ -1,5 +1,5 @@
 using System.Globalization;
-using ServerMonitor.Infrastructure.Monitoring;
+using ServerMonitor.Collection;
 
 namespace ServerMonitor.Tests.Monitoring;
 
