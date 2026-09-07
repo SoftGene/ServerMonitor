@@ -8,17 +8,19 @@
 
 ## 1. Что вообще делает система
 
-Раз в 5 секунд программа снимает показатели той машины, на которой работает: загрузку
-процессора, занятую память, занятое место на диске и время работы с момента загрузки.
-Каждый замер сохраняется в базу данных. Веб-интерфейс показывает последний замер и историю,
-а Telegram-бот присылает сообщение, когда значение превысило порог.
-
-Три вещи, которые система делает одновременно и независимо:
+На каждой наблюдаемой машине стоит **агент** — маленькая программа, которая раз в 5 секунд
+снимает загрузку процессора, занятую память, занятое место на диске и время работы с момента
+загрузки. Замеры уходят по HTTP в центральный API, тот складывает их в базу. Веб-интерфейс
+показывает парк машин и историю каждой, а Telegram-бот присылает сообщение, когда значение
+превысило порог.
 
 ```mermaid
 flowchart LR
-    HW["Железо / ОС"] -->|"раз в 5 сек"| C["Сбор метрик"]
-    C --> DB[("PostgreSQL")]
+    HW1["Железо / ОС<br/>машина 1"] --> A1["Агент"]
+    HW2["Железо / ОС<br/>машина 2"] --> A2["Агент"]
+    A1 -->|"POST /api/ingest"| API["ServerMonitor.Api"]
+    A2 -->|"POST /api/ingest"| API
+    API --> DB[("PostgreSQL")]
     DB --> W["Веб-интерфейс"]
     DB --> T["Telegram-бот"]
 ```
@@ -55,14 +57,20 @@ build` знали, что собирать вместе. У нас это `Sever
 
 ---
 
-## 3. Четыре проекта решения
+## 3. Проекты решения
 
 | Проект | Тип | Что внутри | От кого зависит |
 |--------|-----|------------|-----------------|
-| `SeverMonitor.Domain` | библиотека | 3 класса-сущности: `MetricSnapshot`, `Alert`, `AppSettings` | ни от кого |
-| `ServerMonitor.Infrastructure` | библиотека | сбор метрик, доступ к БД, Telegram-бот | Domain |
+| `SeverMonitor.Domain` | библиотека | сущности: `Server`, `MetricSnapshot`, `Alert`, `AppSettings` | ни от кого |
+| `ServerMonitor.Collection` | библиотека | снятие метрик с машины | Domain |
+| `ServerMonitor.Agent` | консольное приложение | программа для наблюдаемой машины | Collection |
+| `ServerMonitor.Infrastructure` | библиотека | доступ к БД, ключи агентов, Telegram-бот | Domain |
 | `ServerMonitor.Api` | веб-приложение | HTTP API: контроллеры, DTO, точка запуска | Infrastructure |
 | `ServerMonitor.Web` | веб-приложение | Blazor-интерфейс: страницы, компоненты, CSS | ни от кого |
+| `ServerMonitor.Tests` | библиотека тестов | xUnit-тесты | Domain, Collection, Agent, Infrastructure |
+
+Разделение `Collection` и `Agent` появилось на этапе агента — подробно в
+[главе 10](10-agent-and-multiserver.md).
 
 Разберём каждый.
 
@@ -77,6 +85,9 @@ namespace ServerMonitor.Domain.Entities;
 public class MetricSnapshot
 {
     public int Id { get; set; }
+
+    /// <summary>Машина, с которой снят замер.</summary>
+    public int ServerId { get; set; }
     public DateTime TimestampUtc { get; set; }
     public double CpuUsagePercent { get; set; }
     public double MemoryUsedMb { get; set; }
@@ -102,13 +113,10 @@ Telegram. Он знает только, что «замер метрик — э�
 
 Здесь живёт всё, что общается с внешним миром:
 
-- [`Monitoring/MetricsCollector.cs`](../../ServerMonitor.Infrastructure/Monitoring/MetricsCollector.cs) —
-  читает `/proc/stat` в Linux и вызывает функции Windows API; превращает показания железа
-  в `MetricSnapshot` (глава 05).
-- [`Monitoring/MetricsCollectorService.cs`](../../ServerMonitor.Infrastructure/Monitoring/MetricsCollectorService.cs) —
-  фоновый цикл «раз в 5 секунд собрать и сохранить» (глава 04).
 - [`Data/AppDbContext.cs`](../../ServerMonitor.Infrastructure/Data/AppDbContext.cs) — мост к
   PostgreSQL через EF Core (глава 03).
+- [`Agents/ApiKeyGenerator.cs`](../../ServerMonitor.Infrastructure/Agents/ApiKeyGenerator.cs) —
+  генерация и проверка ключей агентов (глава 10).
 - [`Migrations/`](../../ServerMonitor.Infrastructure/Migrations/) — сгенерированный код,
   создающий и меняющий таблицы в базе.
 - [`Telegram/TelegramBotService.cs`](../../ServerMonitor.Infrastructure/Telegram/TelegramBotService.cs) —
@@ -127,17 +135,17 @@ Postgres, `Telegram.Bot`. Это осознанно: технологии ско
   настройки. Контроллер — класс, чьи методы отвечают на HTTP-запросы.
 - [`Dtos/`](../../ServerMonitor.Api/Dtos/) — классы «для передачи наружу» (глава 02).
 
-Здесь же, в `Program.cs`, запускаются оба фоновых сервиса:
+Здесь же, в `Program.cs`, запускается единственный оставшийся фоновый сервис:
 
 ```csharp
-builder.Services.AddHostedService<MetricsCollectorService>();
+// Метрики API больше не снимает: их присылают агенты через POST api/ingest.
 builder.Services.AddHostedService<TelegramBotService>();
 ```
 
-> **Важно.** Сбор метрик работает **внутри процесса API**. То есть система мониторит ту
-> машину, на которой запущен `ServerMonitor.Api`. Это главное ограничение текущей
-> архитектуры: чтобы следить за парком серверов, сбор нужно вынести в отдельного агента,
-> который ставится на каждую машину и отправляет данные в центральный API.
+> **Как было раньше.** До этапа агента здесь же запускался `MetricsCollectorService`, и
+> система мониторила ту машину, на которой запущен сам API. Это и было главным ограничением
+> архитектуры — следить за парком было нельзя. Сбор вынесен в отдельного агента, см.
+> [главу 10](10-agent-and-multiserver.md).
 
 ### Web — «то, что видит человек»
 
@@ -164,10 +172,17 @@ Infrastructure, ни Api. У него есть собственные копии
 
 ```mermaid
 flowchart RL
-    Api["ServerMonitor.Api<br/><i>контроллеры, DTO</i>"] --> Infra["ServerMonitor.Infrastructure<br/><i>EF Core, сбор, Telegram</i>"]
+    Api["ServerMonitor.Api<br/><i>контроллеры, DTO</i>"] --> Infra["ServerMonitor.Infrastructure<br/><i>EF Core, ключи, Telegram</i>"]
     Infra --> Domain["SeverMonitor.Domain<br/><i>сущности</i>"]
+    Agent["ServerMonitor.Agent<br/><i>сбор на машине</i>"] --> Collection["ServerMonitor.Collection<br/><i>/proc, WinAPI</i>"]
+    Collection --> Domain
     Web["ServerMonitor.Web<br/><i>Blazor UI</i>"] -.->|"только HTTP/JSON"| Api
+    Agent -.->|"только HTTP/JSON"| Api
 ```
+
+Обрати внимание: от `Agent` нет стрелки в `Infrastructure`. Агенту не нужны ни EF Core, ни
+драйвер Postgres — он не ходит в базу, он отправляет HTTP-запрос. Ради этого сбор и выделили
+в отдельный проект `Collection`.
 
 Правило простое: **внутренний слой ничего не знает о внешнем**. Domain не знает про
 Infrastructure, Infrastructure не знает про Api. Проверяется это не на словах, а в файлах
@@ -192,7 +207,7 @@ Infrastructure, Infrastructure не знает про Api. Проверяетс�
 sequenceDiagram
     participant OS as Ядро ОС
     participant Col as MetricsCollector
-    participant Svc as MetricsCollectorService
+    participant Svc as AgentWorker (на машине)
     participant DB as PostgreSQL
     participant Ctl as MetricsController
     participant Cli as MetricsApiClient
@@ -203,13 +218,13 @@ sequenceDiagram
     Col->>OS: читает /proc/stat (два раза с паузой 1 сек)
     OS-->>Col: счётчики времени CPU
     Col-->>Svc: MetricSnapshot { CpuUsagePercent = 4.63 }
-    Svc->>DB: INSERT INTO "MetricSnapshots"
+    Svc->>DB: POST /api/ingest -> INSERT INTO "MetricSnapshots"
     Note over Svc: пауза 5 секунд, цикл повторяется
 
-    Br->>UI: пользователь открыл /dashboard
-    UI->>Cli: GetStatusAsync()
-    Cli->>Ctl: GET /api/metrics/status
-    Ctl->>DB: SELECT ... ORDER BY "TimestampUtc" DESC LIMIT 1
+    Br->>UI: пользователь открыл /servers/{guid}
+    UI->>Cli: GetStatusAsync(serverId)
+    Cli->>Ctl: GET /api/servers/{guid}/metrics/status
+    Ctl->>DB: SELECT ... WHERE "ServerId" = ... ORDER BY "TimestampUtc" DESC LIMIT 1
     DB-->>Ctl: строка замера
     Ctl-->>Cli: JSON { "cpuUsagePercent": 4.63, ... }
     Cli-->>UI: объект ServerStatus
@@ -282,15 +297,29 @@ SeverMonitor.slnx                     решение: список проект�
 ├── SeverMonitor.Domain/              ← ядро, без зависимостей
 │   └── Entities/                     MetricSnapshot, Alert, AppSettings
 │
+├── ServerMonitor.Collection/         ← снятие метрик с машины
+│   ├── IMetricsCollector.cs
+│   ├── MetricsCollector.cs           /proc в Linux, P/Invoke в Windows
+│   ├── ProcParser.cs                 чистые функции разбора
+│   └── CpuTimes.cs
+│
+├── ServerMonitor.Agent/              ← ставится на наблюдаемую машину
+│   ├── AgentWorker.cs                цикл: снять, буферизовать, отправить
+│   ├── AgentClient.cs                два HTTP-вызова к API
+│   ├── MetricBuffer.cs               очередь на случай обрыва связи
+│   ├── AgentState.cs                 сохранённые ServerId и ключ
+│   └── AgentOptions.cs
+│
 ├── ServerMonitor.Infrastructure/     ← технологии
 │   ├── Data/AppDbContext.cs          мост к PostgreSQL
 │   ├── Migrations/                   история изменений схемы БД
-│   ├── Monitoring/                   IMetricsCollector, MetricsCollector,
-│   │                                 MetricsCollectorService
+│   ├── Agents/ApiKeyGenerator.cs     ключи агентов
+│   ├── Monitoring/MonitoringOptions.cs
 │   └── Telegram/TelegramBotService.cs
 │
 ├── ServerMonitor.Api/                ← HTTP API + фоновые сервисы
-│   ├── Controllers/                  Metrics, Alerts, Settings
+│   ├── Controllers/                  Servers, Metrics, Alerts, Settings,
+│   │                                 Agents, Ingest
 │   ├── Dtos/                         ServerStatusDto, MetricHistoryItemDto,
 │   │                                 AlertDto, SettingsDto, PagedResult
 │   ├── Properties/launchSettings.json
@@ -300,7 +329,7 @@ SeverMonitor.slnx                     решение: список проект�
 ├── ServerMonitor.Web/                ← Blazor-интерфейс
 │   ├── Components/
 │   │   ├── Layout/                   TopNav, MainLayout
-│   │   ├── Pages/                    Dashboard, History, Alerts, Settings
+│   │   ├── Pages/                    Fleet, Dashboard, History, Alerts, Settings
 │   │   └── Shared/                   MetricCard, ThemeToggle
 │   ├── Models/                       свои копии моделей под JSON
 │   ├── Services/MetricsApiClient.cs  обёртка над HttpClient
@@ -339,7 +368,8 @@ SeverMonitor.slnx                     решение: список проект�
 - Web связан с Api **только формой JSON** — прямых ссылок между проектами нет.
 - Сбор, показ и оповещения общаются через базу данных, а не напрямую.
 - Api и Web — два независимых процесса; для работы системы нужны оба и PostgreSQL.
-- Сбор метрик живёт внутри процесса API — отсюда ограничение «одна машина».
+- Сбор метрик живёт в отдельном агенте на каждой наблюдаемой машине, а API только принимает,
+  хранит и отдаёт — см. [главу 10](10-agent-and-multiserver.md).
 
 Дальше: [Глава 01 — C# и .NET](01-csharp-and-dotnet.md), где разбирается сам язык на
 примерах из этого кода.
