@@ -45,10 +45,22 @@ public class MetricKindExtensionsTests
     [InlineData(MetricKind.Cpu, "CPU")]
     [InlineData(MetricKind.Memory, "Memory")]
     [InlineData(MetricKind.Disk, "Disk")]
+    [InlineData(MetricKind.Availability, "Availability")]
     public void ToDisplayName_MatchesTheFormatStoredInTheDatabase(MetricKind kind, string expected)
     {
         // Эти же строки лежат в колонке Alerts.MetricType, включая записи,
         // сделанные до перехода на перечисления.
         Assert.Equal(expected, kind.ToDisplayName());
+    }
+
+    [Fact]
+    public void EveryKind_HasADisplayName()
+    {
+        // Страховка на будущее: добавив значение в перечисление, легко забыть про строку,
+        // под которой оно ляжет в базу. Тест ловит пустое или дефолтное имя.
+        foreach (var kind in Enum.GetValues<MetricKind>())
+        {
+            Assert.False(string.IsNullOrWhiteSpace(kind.ToDisplayName()));
+        }
     }
 }

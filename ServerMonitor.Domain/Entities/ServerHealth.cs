@@ -17,24 +17,31 @@ public static class ServerHealthCalculator
     public static readonly TimeSpan OfflineAfter = TimeSpan.FromMinutes(5);
 
     /// <summary>
-    /// Пороги пока зашиты константами: настоящий детект падения с настройками и
-    /// оповещениями — отдельный этап (heartbeat).
+    /// Состояние машины по свежести её данных. Пороги можно передать явно — их берут
+    /// из настроек, чтобы экран парка и оповещения о пропаже судили по одной и той же
+    /// границе. Без аргументов используются значения по умолчанию.
     /// </summary>
-    public static ServerHealth FromLastSeen(DateTime? lastSeenUtc, DateTime nowUtc)
+    public static ServerHealth FromLastSeen(
+        DateTime? lastSeenUtc,
+        DateTime nowUtc,
+        TimeSpan? staleAfter = null,
+        TimeSpan? offlineAfter = null)
     {
         if (lastSeenUtc is null)
         {
             return ServerHealth.Offline;
         }
 
+        var stale = staleAfter ?? StaleAfter;
+        var offline = offlineAfter ?? OfflineAfter;
         var age = nowUtc - lastSeenUtc.Value;
 
-        if (age > OfflineAfter)
+        if (age > offline)
         {
             return ServerHealth.Offline;
         }
 
-        if (age > StaleAfter)
+        if (age > stale)
         {
             return ServerHealth.Stale;
         }
