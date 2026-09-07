@@ -7,6 +7,15 @@
 В этой главе: как устроен их жизненный цикл, почему они не могут просто попросить
 `AppDbContext` в конструкторе и что происходит при остановке приложения.
 
+
+> **Обновление после этапа агента.** `MetricsCollectorService`, который разбирается в этой
+> главе, **удалён из API**. Сбор метрик переехал в отдельную программу —
+> `ServerMonitor.Agent`, где живёт `AgentWorker`: тот же `BackgroundService`, но в своём
+> процессе и на наблюдаемой машине. Всё, что здесь написано про `BackgroundService`, времена
+> жизни и `IServiceScopeFactory`, остаётся верным — поменялось только место, где этот цикл
+> работает. Разбор нового цикла с буфером и повторами — в
+> [главе 10](10-agent-and-multiserver.md).
+
 ---
 
 ## Часть 1. `IHostedService` и `BackgroundService`
@@ -56,7 +65,7 @@ builder.Services.AddHostedService<TelegramBotService>();
 ## Часть 2. `MetricsCollectorService` построчно
 
 Весь метод из
-[`MetricsCollectorService.cs`](../../ServerMonitor.Infrastructure/Monitoring/MetricsCollectorService.cs):
+`MetricsCollectorService.cs` (файл удалён на этапе агента, код приведён как был):
 
 ```csharp
 protected override async Task ExecuteAsync(CancellationToken stoppingToken)

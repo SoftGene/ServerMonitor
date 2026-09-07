@@ -6,9 +6,9 @@
 
 Разбор идёт по двум файлам:
 
-- [`MetricsCollector.cs`](../../ServerMonitor.Infrastructure/Monitoring/MetricsCollector.cs) —
+- [`MetricsCollector.cs`](../../ServerMonitor.Collection/MetricsCollector.cs) —
   обращения к операционной системе: чтение файлов, вызовы Windows API, работа с дисками;
-- [`ProcParser.cs`](../../ServerMonitor.Infrastructure/Monitoring/ProcParser.cs) — **чистые
+- [`ProcParser.cs`](../../ServerMonitor.Collection/ProcParser.cs) — **чистые
   функции** разбора текста и вычисления загрузки, без единого обращения к файловой системе.
 
 Такое разделение появилось не сразу: сначала разбор был вперемешку с чтением файлов, и

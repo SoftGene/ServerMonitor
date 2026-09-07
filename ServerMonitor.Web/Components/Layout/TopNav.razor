@@ -1,4 +1,4 @@
-﻿@using ServerMonitor.Web.Components.Shared
+@using ServerMonitor.Web.Components.Shared
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 @inject ILogger<TopNav> Logger
@@ -15,20 +15,33 @@
             <span class="brand-text">SERVER<span class="brand-accent">_ML</span></span>
         </div>
 
+        @* Меню зависит от того, где мы находимся: внутри машины разделы ведут по её
+           данным, снаружи — по общим. Так на графике нельзя перепутать, чья это машина. *@
         <nav class="nav-links" id="navPill">
             <span class="nav-indicator" id="navIndicator"></span>
-            <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.Prefix">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /></svg>
-                <span>Dashboard</span>
+
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="6" rx="1" /><rect x="3" y="14" width="18" height="6" rx="1" /><path d="M7 7h.01M7 17h.01" /></svg>
+                <span>Fleet</span>
             </NavLink>
-            <NavLink class="nav-link" href="history">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5" /><path d="M3.05 13A9 9 0 106 5.3L3 8" /><path d="M12 7v5l4 2" /></svg>
-                <span>History</span>
-            </NavLink>
-            <NavLink class="nav-link" href="alerts">
+
+            @if (currentServerId is not null)
+            {
+                <NavLink class="nav-link" href="@($"servers/{currentServerId}")" Match="NavLinkMatch.All">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /></svg>
+                    <span>Dashboard</span>
+                </NavLink>
+                <NavLink class="nav-link" href="@($"servers/{currentServerId}/history")">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5" /><path d="M3.05 13A9 9 0 106 5.3L3 8" /><path d="M12 7v5l4 2" /></svg>
+                    <span>History</span>
+                </NavLink>
+            }
+
+            <NavLink class="nav-link" href="@AlertsHref">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" /></svg>
                 <span>Alerts</span>
             </NavLink>
+
             <NavLink class="nav-link" href="settings">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" /></svg>
                 <span>Settings</span>
@@ -42,14 +55,41 @@
 </header>
 
 @code {
+    private Guid? currentServerId;
+
+    /// <summary>Внутри машины алерты сужаются до неё, снаружи — весь парк.</summary>
+    private string AlertsHref =>
+        currentServerId is null ? "alerts" : $"servers/{currentServerId}/alerts";
+
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
+        currentServerId = ReadServerId();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await UpdateIndicatorAsync();
+    }
+
+    /// <summary>
+    /// Достаёт идентификатор машины из адреса вида servers/{guid}/... Имя машины здесь
+    /// намеренно не показываем: за ним пришлось бы ходить в API на каждый переход,
+    /// а в заголовке страницы оно и так есть.
+    /// </summary>
+    private Guid? ReadServerId()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri);
+        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        if (segments.Length >= 2 &&
+            segments[0].Equals("servers", StringComparison.OrdinalIgnoreCase) &&
+            Guid.TryParse(segments[1], out var id))
+        {
+            return id;
+        }
+
+        return null;
     }
 
     // Обработчик события обязан возвращать void, поэтому это единственный законный
@@ -59,6 +99,8 @@
     {
         try
         {
+            currentServerId = ReadServerId();
+
             await UpdateIndicatorAsync();
             await InvokeAsync(StateHasChanged);
         }

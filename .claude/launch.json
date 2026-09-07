@@ -2,6 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "ServerMonitor.Api", "--launch-profile", "https"],
+      "port": 7212,
+      "url": "https://localhost:7212"
+    },
+    {
       "name": "web",
       "runtimeExecutable": "dotnet",
       "runtimeArgs": ["run", "--project", "ServerMonitor.Web", "--launch-profile", "http"],

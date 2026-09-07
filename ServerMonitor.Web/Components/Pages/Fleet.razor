@@ -1,0 +1,255 @@
+@page "/"
+@page "/servers"
+@using System.Globalization
+@using ServerMonitor.Web.Models
+@using ServerMonitor.Web.Services
+@inject MetricsApiClient ApiClient
+@implements IDisposable
+
+<PageTitle>Fleet · ServerML</PageTitle>
+
+<div class="fleet">
+    <header class="fleet-header">
+        <div>
+            <h1>Fleet</h1>
+            @if (servers is not null)
+            {
+                <p class="fleet-sub">
+                    <span class="live-dot"></span>
+                    @servers.Count @(servers.Count == 1 ? "machine" : "machines") ·
+                    @servers.Count(s => s.Health == "Online") online<span class="term-cursor" aria-hidden="true"></span>
+                </p>
+            }
+        </div>
+        <button class="icon-btn @(isRefreshing ? "spinning" : "")" @onclick="RefreshNow" title="Refresh now">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>
+        </button>
+    </header>
+
+    @if (loadError is not null)
+    {
+        <div class="state-msg error">[ERR] @loadError</div>
+    }
+    else if (servers is null)
+    {
+        <div class="state-msg">Loading…</div>
+    }
+    else if (servers.Count == 0)
+    {
+        <div class="section-label"><span class="section-no">01</span>No agents yet</div>
+        <div class="empty-rack">
+            <p class="empty-lead">Nothing is reporting. Install the agent on a machine and it appears here within seconds.</p>
+            <ol class="install-steps">
+                <li>
+                    <span class="step-text">Give the agent the enrollment token</span>
+                    <code>dotnet user-secrets set "Agent:EnrollmentToken" "&lt;token&gt;" --project ServerMonitor.Agent</code>
+                </li>
+                <li>
+                    <span class="step-text">Point it at this API</span>
+                    <code>Agent__ServerUrl=https://your-monitor:7212</code>
+                </li>
+                <li>
+                    <span class="step-text">Run it</span>
+                    <code>dotnet run --project ServerMonitor.Agent</code>
+                </li>
+            </ol>
+            <p class="empty-note">
+                The token is shared and needed only once per machine — after registration the agent
+                works from its own key, stored next to the binary.
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="section-label"><span class="section-no">01</span>Machines</div>
+        <div class="rack">
+            @foreach (var server in servers)
+            {
+                <a class="rack-row @HealthClass(server)" href="@($"servers/{server.PublicId}")">
+                    <span class="row-status" title="@server.Health">
+                        <span class="status-dot"></span>
+                    </span>
+
+                    <div class="row-identity">
+                        <div class="row-name">@server.Name</div>
+                        <div class="row-meta">
+                            <span>@(string.IsNullOrWhiteSpace(server.OperatingSystem) ? "unknown os" : server.OperatingSystem)</span>
+                            @if (!string.IsNullOrWhiteSpace(server.AgentVersion))
+                            {
+                                <span class="meta-sep">·</span>
+                                <span>agent @server.AgentVersion</span>
+                            }
+                        </div>
+                    </div>
+
+                    @if (server.HasReadings)
+                    {
+                        <div class="row-metrics">
+                            @foreach (var reading in Readings(server))
+                            {
+                                <div class="row-metric">
+                                    <span class="metric-label">@reading.Label</span>
+                                    <span class="metric-value">@FormatPercent(reading.Value)</span>
+                                    <span class="metric-bar @UsageClass(reading.Value)">
+                                        <i style="width: @BarWidth(reading.Value)%"></i>
+                                    </span>
+                                </div>
+                            }
+                        </div>
+
+                        <svg class="row-spark" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true">
+                            @{
+                                var points = SparkPoints(server);
+                            }
+                            @if (points.Length > 0)
+                            {
+                                <polyline points="@points" fill="none" stroke="currentColor" stroke-width="1.5"
+                                          vector-effect="non-scaling-stroke" />
+                            }
+                        </svg>
+                    }
+                    else
+                    {
+                        <div class="row-metrics is-empty">
+                            <span class="no-data">no readings yet</span>
+                        </div>
+                        <svg class="row-spark" viewBox="0 0 100 28" aria-hidden="true"></svg>
+                    }
+
+                    <div class="row-seen">
+                        <span class="seen-value">@LastSeen(server)</span>
+                        <span class="seen-label">@server.Health.ToLowerInvariant()</span>
+                    </div>
+                </a>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<ServerSummary>? servers;
+    private string? loadError;
+    private bool isRefreshing;
+    private Timer? refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+
+        // Парк опрашивается реже дашборда: здесь важен факт «жива или нет», а не секундная точность.
+        refreshTimer = new Timer(async _ =>
+        {
+            await LoadAsync();
+            await InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            servers = await ApiClient.GetServersAsync();
+            loadError = null;
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+    }
+
+    private async Task RefreshNow()
+    {
+        isRefreshing = true;
+        StateHasChanged();
+        await LoadAsync();
+        await Task.Delay(500);
+        isRefreshing = false;
+    }
+
+    private static (string Label, double? Value)[] Readings(ServerSummary server) =>
+    [
+        ("CPU", server.CpuUsagePercent),
+        ("MEM", server.MemoryUsagePercent),
+        ("DSK", server.DiskUsagePercent)
+    ];
+
+    private static string HealthClass(ServerSummary server) => server.Health switch
+    {
+        "Online" => "is-online",
+        "Stale" => "is-stale",
+        _ => "is-offline"
+    };
+
+    /// <summary>Число для человека — в культуре пользователя, как и на остальных экранах.</summary>
+    private static string FormatPercent(double? value) =>
+        value is null ? "—" : $"{value.Value:0.#}%";
+
+    /// <summary>
+    /// Ширина полоски уходит в CSS, поэтому только инвариантная культура: в ru-RU
+    /// запятая вместо точки сделала бы правило невалидным, и полоска встала бы на всю ширину.
+    /// </summary>
+    private static string BarWidth(double? value) =>
+        Math.Clamp(value ?? 0, 0, 100).ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static string UsageClass(double? value) => value switch
+    {
+        >= 90 => "is-crit",
+        >= 70 => "is-warn",
+        _ => ""
+    };
+
+    /// <summary>Точки спарклайна в координатах viewBox 100×28 — тоже машинный формат.</summary>
+    private static string SparkPoints(ServerSummary server)
+    {
+        var trend = server.CpuTrend;
+
+        if (trend.Count < 2)
+        {
+            return string.Empty;
+        }
+
+        var builder = new System.Text.StringBuilder();
+
+        for (var i = 0; i < trend.Count; i++)
+        {
+            var x = i * 100.0 / (trend.Count - 1);
+            var y = 28 - Math.Clamp(trend[i], 0, 100) * 28 / 100.0;
+
+            if (i > 0)
+            {
+                builder.Append(' ');
+            }
+
+            builder.Append(x.ToString("0.##", CultureInfo.InvariantCulture));
+            builder.Append(',');
+            builder.Append(y.ToString("0.##", CultureInfo.InvariantCulture));
+        }
+
+        return builder.ToString();
+    }
+
+    private static string LastSeen(ServerSummary server)
+    {
+        if (server.LastSeenUtc is null)
+        {
+            return "never";
+        }
+
+        var age = DateTime.UtcNow - server.LastSeenUtc.Value;
+
+        if (age < TimeSpan.Zero)
+        {
+            age = TimeSpan.Zero;
+        }
+
+        return age.TotalSeconds switch
+        {
+            < 60 => $"{(int)age.TotalSeconds}s ago",
+            < 3600 => $"{(int)age.TotalMinutes}m ago",
+            < 86400 => $"{(int)age.TotalHours}h ago",
+            _ => $"{(int)age.TotalDays}d ago"
+        };
+    }
+
+    public void Dispose() => refreshTimer?.Dispose();
+}

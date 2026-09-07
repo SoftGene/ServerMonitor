@@ -1,4 +1,4 @@
-﻿@page "/history"
+﻿@page "/servers/{PublicId:guid}/history"
 @using ServerMonitor.Web.Models
 @using ServerMonitor.Web.Services
 @inject MetricsApiClient ApiClient
@@ -8,8 +8,9 @@
 <div class="history-page">
     <header class="page-header">
         <div>
+            <a class="back-link" href="@($"servers/{PublicId}")">← @(serverName ?? "Server")</a>
             <h1>History</h1>
-            <p class="page-sub">All collected metric snapshots</p>
+            <p class="page-sub">Every sample stored for this machine</p>
         </div>
         @if (!IsDefaultSort)
         {
@@ -93,7 +94,13 @@
 </div>
 
 @code {
+    /// <summary>Машина, чью историю показываем. Приходит из адреса /servers/{guid}/history.</summary>
+    [Parameter]
+    public Guid PublicId { get; set; }
+
     private PagedResult<MetricHistoryItem>? data;
+    private string? serverName;
+    private Guid loadedId;
     private string? loadError;
     private int currentPage = 1;
     private int pageSize = 20;
@@ -106,13 +113,30 @@
 
     private bool IsDefaultSort => sortBy == "timestamp" && sortDir == "desc";
 
-    protected override async Task OnInitializedAsync() => await LoadPage();
+    // Не OnInitializedAsync: при переходе между машинами меняется только параметр
+    // маршрута, а компонент Blazor переиспользует.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedId == PublicId)
+        {
+            return;
+        }
+
+        loadedId = PublicId;
+        data = null;
+        currentPage = 1;
+
+        serverName = (await ApiClient.GetServerAsync(PublicId))?.Name;
+
+        await LoadPage();
+    }
 
     private async Task LoadPage()
     {
         try
         {
-            data = await ApiClient.GetHistoryPagedAsync(currentPage, pageSize, sortBy, sortDir, fromDate, toDate);
+            data = await ApiClient.GetHistoryPagedAsync(
+                PublicId, currentPage, pageSize, sortBy, sortDir, fromDate, toDate);
             loadError = null;
         }
         catch (Exception ex)

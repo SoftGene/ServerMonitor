@@ -1,9 +1,10 @@
-﻿@page "/dashboard"
+﻿@page "/servers/{PublicId:guid}"
 @using System.Globalization
 @using ServerMonitor.Web.Models
 @using ServerMonitor.Web.Services
 @using ServerMonitor.Web.Components.Shared
 @inject MetricsApiClient ApiClient
+@inject NavigationManager Nav
 @implements IDisposable
 
 <PageTitle>Server Monitor</PageTitle>
@@ -11,7 +12,8 @@
 <div class="dashboard">
     <header class="dash-header">
         <div>
-            <h1>Server Monitor</h1>
+            <a class="back-link" href="">← Fleet</a>
+            <h1>@(server?.Name ?? "Server")</h1>
             @if (status is not null)
             {
                 <p class="dash-subtitle">
@@ -47,9 +49,17 @@
     {
         <div class="state-msg error">[ERR] @loadError</div>
     }
-    else if (status is null)
+    else if (!hasLoaded)
     {
         <div class="state-msg">Loading…</div>
+    }
+    else if (server is null)
+    {
+        <div class="state-msg error">[ERR] This server no longer exists.</div>
+    }
+    else if (status is null)
+    {
+        <div class="state-msg">No readings from this machine yet. The agent registers before it sends its first sample.</div>
     }
     else
     {
@@ -190,23 +200,90 @@
             </div>
         }
     }
+
+    @if (server is not null)
+    {
+        <div class="section-label"><span class="section-no">04</span>Danger zone</div>
+        <div class="danger-zone">
+            <div class="danger-text">
+                <div class="danger-title">Remove this machine</div>
+                <p class="danger-desc">
+                    Deletes <strong>@server.Name</strong> together with every stored sample and alert.
+                    This cannot be undone.
+                </p>
+            </div>
+            @if (!isDeleting)
+            {
+                <button class="danger-btn" @onclick="StartDelete">Remove…</button>
+            }
+        </div>
+
+        @if (isDeleting)
+        {
+            <div class="danger-confirm">
+                @* Подтверждение вводом имени: соразмерно ущербу — одним промахом мыши
+                   месяц истории удалить нельзя. *@
+                <label for="confirmName">Type <code>@server.Name</code> to confirm.</label>
+                <div class="confirm-row">
+                    <input id="confirmName" class="confirm-input" autocomplete="off"
+                           placeholder="@server.Name"
+                           value="@confirmName" @oninput="OnConfirmNameInput" />
+                    <button class="danger-btn" disabled="@(confirmName != server.Name)" @onclick="DeleteServerAsync">
+                        Delete permanently
+                    </button>
+                    <button class="cancel-btn" @onclick="CancelDelete">Cancel</button>
+                </div>
+                @if (deleteError is not null)
+                {
+                    <div class="state-msg error">[ERR] @deleteError</div>
+                }
+            </div>
+        }
+    }
 </div>
 
 @code {
+    /// <summary>Машина, чей дашборд открыт. Приходит из адреса /servers/{guid}.</summary>
+    [Parameter]
+    public Guid PublicId { get; set; }
+
+    private ServerSummary? server;
     private ServerStatus? status;
     private List<MetricHistoryItem> history = new();
     private string? loadError;
     private Timer? refreshTimer;
+    private Guid loadedId;
+    private bool hasLoaded;
 
     private bool isPaused = false;
     private bool isRefreshing = false;
     private int sampleCount = 50;
     private readonly int[] periods = { 50, 100, 200 };
 
-    protected override async Task OnInitializedAsync()
+    private bool isDeleting;
+    private string confirmName = string.Empty;
+    private string? deleteError;
+
+    // Не OnInitializedAsync: при переходе с одной машины на другую меняется только
+    // параметр маршрута, а сам компонент Blazor переиспользует — инициализация бы не повторилась.
+    protected override async Task OnParametersSetAsync()
     {
+        if (loadedId == PublicId)
+        {
+            return;
+        }
+
+        loadedId = PublicId;
+
+        // Чужие показания на новой странице мелькнуть не должны, поэтому чистим состояние.
+        hasLoaded = false;
+        server = null;
+        status = null;
+        history = new();
+
         await LoadDataAsync();
-        refreshTimer = new Timer(async _ =>
+
+        refreshTimer ??= new Timer(async _ =>
         {
             if (!isPaused)
             {
@@ -220,8 +297,21 @@
     {
         try
         {
-            status = await ApiClient.GetStatusAsync();
-            var raw = await ApiClient.GetHistoryAsync(sampleCount);
+            server = await ApiClient.GetServerAsync(PublicId);
+
+            if (server is null)
+            {
+                // Машину удалили — показывать нечего, но это не ошибка связи.
+                status = null;
+                history = new();
+                loadError = null;
+
+                return;
+            }
+
+            status = await ApiClient.GetStatusAsync(PublicId);
+
+            var raw = await ApiClient.GetHistoryAsync(PublicId, sampleCount);
             history = raw
                 .OrderBy(h => h.TimestampUtc)
                 .Select(h => new MetricHistoryItem
@@ -238,6 +328,10 @@
         {
             loadError = ex.Message;
         }
+        finally
+        {
+            hasLoaded = true;
+        }
     }
 
     private async Task RefreshNow()
@@ -250,6 +344,43 @@
     }
 
     private void TogglePause() => isPaused = !isPaused;
+
+    private void StartDelete() => isDeleting = true;
+
+    private void OnConfirmNameInput(ChangeEventArgs e) => confirmName = e.Value?.ToString() ?? string.Empty;
+
+    private void CancelDelete()
+    {
+        isDeleting = false;
+        confirmName = string.Empty;
+        deleteError = null;
+    }
+
+    private async Task DeleteServerAsync()
+    {
+        // Кнопка и так заблокирована, но проверку повторяем: состояние могло измениться
+        // между отрисовкой и щелчком.
+        if (server is null || confirmName != server.Name)
+        {
+            return;
+        }
+
+        try
+        {
+            if (await ApiClient.DeleteServerAsync(PublicId))
+            {
+                Nav.NavigateTo("");
+
+                return;
+            }
+
+            deleteError = "The server could not be deleted.";
+        }
+        catch (Exception ex)
+        {
+            deleteError = ex.Message;
+        }
+    }
 
     private async Task ChangePeriod(int count)
     {

@@ -61,7 +61,7 @@ CLR даёт ещё две вещи, о которых стоит знать:
 
 ## Часть 2. Анатомия файла
 
-Возьмём [`IMetricsCollector.cs`](../../ServerMonitor.Infrastructure/Monitoring/IMetricsCollector.cs)
+Возьмём [`IMetricsCollector.cs`](../../ServerMonitor.Collection/IMetricsCollector.cs)
 целиком — восемь строк, а в них три языковые конструкции:
 
 ```csharp
@@ -266,7 +266,7 @@ y = 99;                         // x остался 10
 ```
 
 В нашем коде есть один самодельный значимый тип — в
-[`MetricsCollector.cs`](../../ServerMonitor.Infrastructure/Monitoring/MetricsCollector.cs):
+[`MetricsCollector.cs`](../../ServerMonitor.Collection/MetricsCollector.cs):
 
 ```csharp
 private readonly struct CpuTimes
@@ -388,7 +388,7 @@ var latest = await _dbContext.MetricSnapshots...FirstOrDefaultAsync(cancellation
 
 ## Часть 7. Интерфейсы
 
-[`IMetricsCollector`](../../ServerMonitor.Infrastructure/Monitoring/IMetricsCollector.cs) —
+[`IMetricsCollector`](../../ServerMonitor.Collection/IMetricsCollector.cs) —
 это **контракт**: перечень того, что умеет делать объект, без единой строчки реализации.
 
 ```csharp
@@ -398,7 +398,7 @@ public interface IMetricsCollector
 }
 ```
 
-Класс [`MetricsCollector`](../../ServerMonitor.Infrastructure/Monitoring/MetricsCollector.cs)
+Класс [`MetricsCollector`](../../ServerMonitor.Collection/MetricsCollector.cs)
 обещает выполнить контракт:
 
 ```csharp
@@ -408,7 +408,7 @@ public class MetricsCollector : IMetricsCollector
 Буква `I` в начале имени — соглашение .NET (в Java, например, так не делают).
 
 > **Почему интерфейс, а не сразу класс.** Смотри на
-> [`MetricsCollectorService`](../../ServerMonitor.Infrastructure/Monitoring/MetricsCollectorService.cs):
+> `MetricsCollectorService` (удалён на этапе агента):
 > он принимает `IMetricsCollector`, а не `MetricsCollector`. Значит, фоновый сервис не знает
 > и не хочет знать, откуда берутся числа: из `/proc`, из Windows API или из подделки для
 > теста. Это позволяет (а) написать тест, подсунув фальшивый коллектор, который возвращает
@@ -594,7 +594,7 @@ public async Task<ActionResult<ServerStatusDto>> GetStatus(CancellationToken can
 приложения, чтобы бесконечный цикл корректно завершился, а не был убит на середине.
 
 Обрати внимание на такую конструкцию в
-[`MetricsCollectorService`](../../ServerMonitor.Infrastructure/Monitoring/MetricsCollectorService.cs):
+`MetricsCollectorService` (удалён на этапе агента):
 
 ```csharp
 try

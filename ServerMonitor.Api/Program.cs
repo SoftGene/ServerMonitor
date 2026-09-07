@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using ServerMonitor.Infrastructure.Data;
-using ServerMonitor.Collection;
 using ServerMonitor.Infrastructure.Monitoring;
 using ServerMonitor.Infrastructure.Telegram;
 
@@ -28,10 +27,8 @@ builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-builder.Services.AddSingleton<IMetricsCollector, MetricsCollector>();
-
-builder.Services.AddHostedService<MetricsCollectorService>();
-
+// Метрики API больше не снимает: их присылают агенты через POST api/ingest.
+// Здесь остаётся только слежение за порогами и оповещения.
 builder.Services.AddHostedService<TelegramBotService>();
 
 var app = builder.Build();
