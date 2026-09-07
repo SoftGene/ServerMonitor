@@ -1,4 +1,4 @@
-﻿namespace ServerMonitor.Web.Models;
+namespace ServerMonitor.Web.Models;
 
 public class Alert
 {
@@ -8,4 +8,8 @@ public class Alert
     public double Value { get; set; }
     public double Threshold { get; set; }
     public string AlertType { get; set; } = string.Empty;
+
+    /// <summary>Машина, на которой сработал порог.</summary>
+    public string ServerName { get; set; } = string.Empty;
+    public Guid ServerPublicId { get; set; }
 }

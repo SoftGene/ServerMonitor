@@ -1,4 +1,5 @@
 ﻿@page "/alerts"
+@page "/servers/{PublicId:guid}/alerts"
 @using ServerMonitor.Web.Models
 @using ServerMonitor.Web.Services
 @inject MetricsApiClient ApiClient
@@ -8,8 +9,14 @@
 <div class="alerts-page">
     <header class="page-header">
         <div>
+            @if (PublicId is not null)
+            {
+                <a class="back-link" href="@($"servers/{PublicId}")">← @(serverName ?? "Server")</a>
+            }
             <h1>Alerts</h1>
-            <p class="page-sub">History of threshold events</p>
+            <p class="page-sub">
+                @(PublicId is null ? "Threshold events across the whole fleet" : "Threshold events on this machine")
+            </p>
         </div>
         <button class="refresh-btn @(isRefreshing ? "spinning" : "")" @onclick="Refresh" title="Refresh">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>
@@ -51,6 +58,12 @@
                     </div>
                     <div class="alert-body">
                         <div class="alert-title">
+                            @* В общем списке машина обязательна: без неё событие не адресовано. *@
+                            @if (PublicId is null)
+                            {
+                                <a class="alert-server" href="@($"servers/{alert.ServerPublicId}")">@alert.ServerName</a>
+                                <span class="alert-sep">·</span>
+                            }
                             @alert.MetricType @(alert.AlertType == "Triggered" ? "exceeded threshold" : "recovered")
                         </div>
                         <div class="alert-detail">
@@ -67,17 +80,43 @@
 </div>
 
 @code {
+    /// <summary>
+    /// Машина, если открыт список одной из них. null — общий список по всему парку:
+    /// вопрос «где вообще что-то сломалось» относится ко всем сразу.
+    /// </summary>
+    [Parameter]
+    public Guid? PublicId { get; set; }
+
     private List<Alert>? alerts;
+    private string? serverName;
+    private Guid? loadedId;
+    private bool hasLoaded;
     private string? loadError;
     private bool isRefreshing = false;
 
-    protected override async Task OnInitializedAsync() => await LoadAlerts();
+    protected override async Task OnParametersSetAsync()
+    {
+        if (hasLoaded && loadedId == PublicId)
+        {
+            return;
+        }
+
+        hasLoaded = true;
+        loadedId = PublicId;
+        alerts = null;
+
+        serverName = PublicId is null
+            ? null
+            : (await ApiClient.GetServerAsync(PublicId.Value))?.Name;
+
+        await LoadAlerts();
+    }
 
     private async Task LoadAlerts()
     {
         try
         {
-            alerts = await ApiClient.GetAlertsAsync(50);
+            alerts = await ApiClient.GetAlertsAsync(50, PublicId);
             loadError = null;
         }
         catch (Exception ex)

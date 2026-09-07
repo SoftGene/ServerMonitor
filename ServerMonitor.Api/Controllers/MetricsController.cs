@@ -6,8 +6,12 @@ using ServerMonitor.Api.Dtos;
 
 namespace ServerMonitor.Api.Controllers;
 
+/// <summary>
+/// Чтение метрик конкретной машины. Маршрут вложен в сервер, потому что замер без
+/// машины смысла не имеет: раньше он подразумевался единственным, теперь называется явно.
+/// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/servers/{publicId:guid}/metrics")]
 public class MetricsController : ControllerBase
 {
     private readonly AppDbContext _dbContext;
@@ -17,11 +21,34 @@ public class MetricsController : ControllerBase
         _dbContext = dbContext;
     }
 
-    [HttpGet("status")]
-    public async Task<ActionResult<ServerStatusDto>> GetStatus(CancellationToken cancellationToken)
+    /// <summary>
+    /// Переводит публичный идентификатор во внутренний ключ. Наружу отдаётся только
+    /// PublicId, а связи внутри базы построены на числовом Id.
+    /// </summary>
+    private async Task<int?> ResolveServerIdAsync(Guid publicId, CancellationToken cancellationToken)
     {
+        return await _dbContext.Servers
+            .AsNoTracking()
+            .Where(s => s.PublicId == publicId)
+            .Select(s => (int?)s.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    [HttpGet("status")]
+    public async Task<ActionResult<ServerStatusDto>> GetStatus(
+        Guid publicId,
+        CancellationToken cancellationToken)
+    {
+        var serverId = await ResolveServerIdAsync(publicId, cancellationToken);
+
+        if (serverId is null)
+        {
+            return NotFound("Server not found.");
+        }
+
         var latest = await _dbContext.MetricSnapshots
             .AsNoTracking()
+            .Where(m => m.ServerId == serverId)
             .OrderByDescending(m => m.TimestampUtc)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -54,6 +81,7 @@ public class MetricsController : ControllerBase
 
     [HttpGet("history")]
     public async Task<ActionResult<IEnumerable<MetricHistoryItemDto>>> GetHistory(
+        Guid publicId,
         [FromQuery] int count = 50,
         CancellationToken cancellationToken = default)
     {
@@ -62,8 +90,16 @@ public class MetricsController : ControllerBase
             return BadRequest("Count must be between 1 and 1000.");
         }
 
+        var serverId = await ResolveServerIdAsync(publicId, cancellationToken);
+
+        if (serverId is null)
+        {
+            return NotFound("Server not found.");
+        }
+
         var items = await _dbContext.MetricSnapshots
             .AsNoTracking()
+            .Where(m => m.ServerId == serverId)
             .OrderByDescending(m => m.TimestampUtc)
             .Take(count)
             .Select(m => new MetricHistoryItemDto
@@ -82,6 +118,7 @@ public class MetricsController : ControllerBase
 
     [HttpGet("history/paged")]
     public async Task<ActionResult<PagedResult<MetricHistoryItemDto>>> GetHistoryPaged(
+        Guid publicId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] string sortBy = "timestamp",
@@ -93,7 +130,16 @@ public class MetricsController : ControllerBase
         if (page < 1) page = 1;
         if (pageSize < 1 || pageSize > 100) pageSize = 20;
 
-        IQueryable<MetricSnapshot> query = _dbContext.MetricSnapshots.AsNoTracking();
+        var serverId = await ResolveServerIdAsync(publicId, cancellationToken);
+
+        if (serverId is null)
+        {
+            return NotFound("Server not found.");
+        }
+
+        IQueryable<MetricSnapshot> query = _dbContext.MetricSnapshots
+            .AsNoTracking()
+            .Where(m => m.ServerId == serverId);
 
         if (from.HasValue)
         {

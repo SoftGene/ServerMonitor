@@ -172,3 +172,38 @@
     max-width: 400px;
     margin-inline: auto;
 }
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.back-link:hover {
+    color: var(--accent);
+}
+
+/* Имя машины в общем списке: без него событие ни к чему не привязано. */
+.alert-server {
+    font-family: var(--font-mono);
+    color: var(--text);
+    text-decoration: none;
+    border-bottom: 1px solid var(--border);
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.alert-server:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.alert-sep {
+    margin: 0 4px;
+    color: var(--text-soft);
+}
