@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -24,16 +24,15 @@ public class TelegramBotService : BackgroundService
     private ITelegramBotClient? _botClient;
     private string? _chatId;
 
+    private static readonly MetricKind[] TrackedKinds =
+        [MetricKind.Cpu, MetricKind.Memory, MetricKind.Disk];
+
     /// <summary>
-    /// Состояние по каждой метрике. Раньше это были три отдельных поля, которые
-    /// передавались в проверку парой делегатов «прочитать» и «записать».
+    /// Состояние тревоги по паре «машина + метрика». Ключом раньше была одна метрика,
+    /// потому что машина подразумевалась единственной: с парком такое состояние
+    /// перемигивалось бы между серверами — превышение на одном гасило бы тревогу другого.
     /// </summary>
-    private readonly Dictionary<MetricKind, MetricAlertState> _states = new()
-    {
-        [MetricKind.Cpu] = new MetricAlertState(),
-        [MetricKind.Memory] = new MetricAlertState(),
-        [MetricKind.Disk] = new MetricAlertState()
-    };
+    private readonly Dictionary<(int ServerId, MetricKind Kind), MetricAlertState> _states = new();
 
     public TelegramBotService(
         IConfiguration configuration,
@@ -108,9 +107,23 @@ public class TelegramBotService : BackgroundService
         }
     }
 
+    /// <summary>Состояние тревоги для пары «машина + метрика», заводится при первом обращении.</summary>
+    private MetricAlertState StateFor(int serverId, MetricKind kind)
+    {
+        var key = (serverId, kind);
+
+        if (!_states.TryGetValue(key, out var state))
+        {
+            state = new MetricAlertState();
+            _states[key] = state;
+        }
+
+        return state;
+    }
+
     /// <summary>
-    /// Восстанавливает состояние по последней записи в журнале алертов для каждой метрики.
-    /// Если последним событием было «Triggered», значит тревога всё ещё открыта.
+    /// Восстанавливает состояние по последней записи в журнале для каждой пары
+    /// «машина + метрика». Если последним событием было «Triggered», тревога всё ещё открыта.
     /// </summary>
     private async Task RestoreAlertStateAsync(CancellationToken cancellationToken)
     {
@@ -119,21 +132,30 @@ public class TelegramBotService : BackgroundService
             using var scope = _scopeFactory.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            foreach (var kind in _states.Keys)
-            {
-                var lastAlert = await dbContext.Alerts
-                    .AsNoTracking()
-                    .Where(a => a.MetricType == kind)
-                    .OrderByDescending(a => a.TimestampUtc)
-                    .FirstOrDefaultAsync(cancellationToken);
+            var serverIds = await dbContext.Servers
+                .AsNoTracking()
+                .Select(s => s.Id)
+                .ToListAsync(cancellationToken);
 
-                if (lastAlert is not null)
+            foreach (var serverId in serverIds)
+            {
+                foreach (var kind in TrackedKinds)
                 {
-                    _states[kind].IsAlerting = lastAlert.AlertType == AlertKind.Triggered;
+                    var lastAlert = await dbContext.Alerts
+                        .AsNoTracking()
+                        .Where(a => a.ServerId == serverId && a.MetricType == kind)
+                        .OrderByDescending(a => a.TimestampUtc)
+                        .FirstOrDefaultAsync(cancellationToken);
+
+                    if (lastAlert is not null)
+                    {
+                        StateFor(serverId, kind).IsAlerting = lastAlert.AlertType == AlertKind.Triggered;
+                    }
                 }
             }
 
-            _logger.LogInformation("Alert state restored from the database.");
+            _logger.LogInformation(
+                "Alert state restored for {Count} server(s) from the database.", serverIds.Count);
         }
         catch (Exception ex)
         {
@@ -155,19 +177,45 @@ public class TelegramBotService : BackgroundService
             return;
         }
 
-        var latest = await dbContext.MetricSnapshots
+        var servers = await dbContext.Servers
             .AsNoTracking()
-            .OrderByDescending(m => m.TimestampUtc)
-            .FirstOrDefaultAsync(cancellationToken);
+            .Select(s => new { s.Id, s.Name })
+            .ToListAsync(cancellationToken);
 
-        if (latest is null)
+        var nowUtc = DateTime.UtcNow;
+
+        foreach (var server in servers)
         {
-            return;
-        }
+            var latest = await dbContext.MetricSnapshots
+                .AsNoTracking()
+                .Where(m => m.ServerId == server.Id)
+                .OrderByDescending(m => m.TimestampUtc)
+                .FirstOrDefaultAsync(cancellationToken);
 
-        await CheckThresholdAsync(dbContext, MetricKind.Cpu, latest.CpuUsagePercent, settings.CpuThreshold, cancellationToken);
-        await CheckThresholdAsync(dbContext, MetricKind.Memory, latest.MemoryUsagePercent, settings.MemoryThreshold, cancellationToken);
-        await CheckThresholdAsync(dbContext, MetricKind.Disk, latest.DiskUsagePercent, settings.DiskThreshold, cancellationToken);
+            if (latest is null)
+            {
+                continue;
+            }
+
+            // Машина молчит — её последний замер устарел, судить о нагрузке по нему нельзя.
+            // Оповещение о самой пропаже машины — задача отдельного этапа (heartbeat).
+            if (ServerHealthCalculator.FromLastSeen(latest.TimestampUtc, nowUtc) == ServerHealth.Offline)
+            {
+                continue;
+            }
+
+            await CheckThresholdAsync(
+                dbContext, server.Id, server.Name, MetricKind.Cpu,
+                latest.CpuUsagePercent, settings.CpuThreshold, cancellationToken);
+
+            await CheckThresholdAsync(
+                dbContext, server.Id, server.Name, MetricKind.Memory,
+                latest.MemoryUsagePercent, settings.MemoryThreshold, cancellationToken);
+
+            await CheckThresholdAsync(
+                dbContext, server.Id, server.Name, MetricKind.Disk,
+                latest.DiskUsagePercent, settings.DiskThreshold, cancellationToken);
+        }
     }
 
     /// <summary>
@@ -176,12 +224,14 @@ public class TelegramBotService : BackgroundService
     /// </summary>
     private async Task CheckThresholdAsync(
         AppDbContext dbContext,
+        int serverId,
+        string serverName,
         MetricKind kind,
         double value,
         double threshold,
         CancellationToken cancellationToken)
     {
-        var state = _states[kind];
+        var state = StateFor(serverId, kind);
         var name = kind.ToDisplayName();
 
         if (value > threshold)
@@ -193,11 +243,12 @@ public class TelegramBotService : BackgroundService
             {
                 state.IsAlerting = true;
 
+                // Имя машины в тексте обязательно: сообщение без него не говорит, куда идти.
                 await SendAlertAsync(
-                    $"⚠️ <b>{name} Alert</b>\n{name} usage is high: <b>{value:F1}%</b> (threshold {threshold}%)",
+                    $"⚠️ <b>{name} Alert</b> · {Escape(serverName)}\n{name} usage is high: <b>{value:F1}%</b> (threshold {threshold}%)",
                     cancellationToken);
 
-                await SaveAlertAsync(dbContext, kind, value, threshold, AlertKind.Triggered, cancellationToken);
+                await SaveAlertAsync(dbContext, serverId, kind, value, threshold, AlertKind.Triggered, cancellationToken);
             }
         }
         else
@@ -209,16 +260,17 @@ public class TelegramBotService : BackgroundService
                 state.IsAlerting = false;
 
                 await SendAlertAsync(
-                    $"✅ <b>{name} Recovered</b>\n{name} usage back to normal: <b>{value:F1}%</b>",
+                    $"✅ <b>{name} Recovered</b> · {Escape(serverName)}\n{name} usage back to normal: <b>{value:F1}%</b>",
                     cancellationToken);
 
-                await SaveAlertAsync(dbContext, kind, value, threshold, AlertKind.Recovered, cancellationToken);
+                await SaveAlertAsync(dbContext, serverId, kind, value, threshold, AlertKind.Recovered, cancellationToken);
             }
         }
     }
 
     private async Task SaveAlertAsync(
         AppDbContext dbContext,
+        int serverId,
         MetricKind metricType,
         double value,
         double threshold,
@@ -227,6 +279,9 @@ public class TelegramBotService : BackgroundService
     {
         var alert = new Alert
         {
+            // Без ServerId запись не проходит внешний ключ: с появлением сущности Server
+            // алерт без машины перестал быть допустимым.
+            ServerId = serverId,
             TimestampUtc = DateTime.UtcNow,
             MetricType = metricType,
             Value = Math.Round(value, 1),
@@ -300,22 +355,55 @@ public class TelegramBotService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var latest = await dbContext.MetricSnapshots
+        var servers = await dbContext.Servers
             .AsNoTracking()
-            .OrderByDescending(m => m.TimestampUtc)
-            .FirstOrDefaultAsync(cancellationToken);
+            .OrderBy(s => s.Name)
+            .Select(s => new { s.Id, s.Name, s.LastSeenUtc })
+            .ToListAsync(cancellationToken);
 
-        if (latest is null)
+        if (servers.Count == 0)
         {
-            return "No metrics available yet.";
+            return "No servers registered yet.";
         }
 
-        return $"📊 <b>Server Status</b>\n\n" +
-               $"🖥 CPU: <b>{latest.CpuUsagePercent:F1}%</b>\n" +
-               $"💾 Memory: <b>{latest.MemoryUsagePercent:F1}%</b>\n" +
-               $"💿 Disk: <b>{latest.DiskUsagePercent:F1}%</b>\n\n" +
-               $"🕐 Updated: {latest.TimestampUtc.ToLocalTime():HH:mm:ss}";
+        var nowUtc = DateTime.UtcNow;
+        var lines = new List<string> { "📊 <b>Fleet Status</b>" };
+
+        foreach (var server in servers)
+        {
+            var latest = await dbContext.MetricSnapshots
+                .AsNoTracking()
+                .Where(m => m.ServerId == server.Id)
+                .OrderByDescending(m => m.TimestampUtc)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            var marker = ServerHealthCalculator.FromLastSeen(server.LastSeenUtc, nowUtc) switch
+            {
+                ServerHealth.Online => "🟢",
+                ServerHealth.Stale => "🟡",
+                _ => "🔴"
+            };
+
+            var name = Escape(server.Name);
+
+            lines.Add(latest is null
+                ? $"\n{marker} <b>{name}</b>\nNo readings yet."
+                : $"\n{marker} <b>{name}</b>\n" +
+                  $"🖥 CPU <b>{latest.CpuUsagePercent:F1}%</b> · " +
+                  $"💾 RAM <b>{latest.MemoryUsagePercent:F1}%</b> · " +
+                  $"💿 Disk <b>{latest.DiskUsagePercent:F1}%</b>\n" +
+                  $"🕐 {latest.TimestampUtc.ToLocalTime():HH:mm:ss}");
+        }
+
+        return string.Join("\n", lines);
     }
+
+    /// <summary>
+    /// Экранирует имя машины для parseMode=Html. Имя приходит от агента, то есть
+    /// снаружи, а символ &lt; сломал бы разметку сообщения.
+    /// </summary>
+    private static string Escape(string value) =>
+        value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
 
     /// <summary>Текущее состояние тревоги по одной метрике.</summary>
     private sealed class MetricAlertState

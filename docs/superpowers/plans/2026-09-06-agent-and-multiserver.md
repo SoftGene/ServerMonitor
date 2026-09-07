@@ -35,7 +35,7 @@
 **Interfaces:**
 - Produces: пространство имён `ServerMonitor.Collection` с публичными `IMetricsCollector`, `MetricsCollector`, `ProcParser`, `CpuTimes` — их используют задачи 5 (агент) и существующий `MetricsCollectorService`.
 
-- [ ] **Step 1: Создать проект и подключить к решению**
+- [x] **Step 1: Создать проект и подключить к решению**
 
 ```bash
 dotnet new classlib -o ServerMonitor.Collection
@@ -51,7 +51,7 @@ dotnet sln SeverMonitor.slnx add ServerMonitor.Collection/ServerMonitor.Collecti
 
 Удалить сгенерированный `ServerMonitor.Collection/Class1.cs`.
 
-- [ ] **Step 2: Перенести файлы сбора**
+- [x] **Step 2: Перенести файлы сбора**
 
 Переместить четыре файла из `ServerMonitor.Infrastructure/Monitoring/` в `ServerMonitor.Collection/`, заменив в каждом строку пространства имён:
 
@@ -61,7 +61,7 @@ namespace ServerMonitor.Collection;
 
 `MonitoringOptions.cs` и `MetricsCollectorService.cs` **остаются** в `Infrastructure` (их делит задача 3).
 
-- [ ] **Step 3: Проставить ссылки**
+- [x] **Step 3: Проставить ссылки**
 
 В `ServerMonitor.Infrastructure.csproj` и `ServerMonitor.Tests.csproj` добавить:
 
@@ -69,7 +69,7 @@ namespace ServerMonitor.Collection;
 <ProjectReference Include="..\ServerMonitor.Collection\ServerMonitor.Collection.csproj" />
 ```
 
-- [ ] **Step 4: Починить using в затронутых файлах**
+- [x] **Step 4: Починить using в затронутых файлах**
 
 Добавить `using ServerMonitor.Collection;` в:
 - `ServerMonitor.Infrastructure/Monitoring/MetricsCollectorService.cs`
@@ -77,7 +77,7 @@ namespace ServerMonitor.Collection;
 - `ServerMonitor.Tests/Monitoring/MetricsCollectorTests.cs`
 - `ServerMonitor.Tests/Monitoring/ProcParserTests.cs`
 
-- [ ] **Step 5: Проверить, что перенос ничего не сломал**
+- [x] **Step 5: Проверить, что перенос ничего не сломал**
 
 Run: `dotnet build`
 Expected: `Ошибок: 0`, `Предупреждений: 0`
@@ -85,7 +85,7 @@ Expected: `Ошибок: 0`, `Предупреждений: 0`
 Run: `SERVERMONITOR_RUN_COLLECTOR_TESTS=1 dotnet test`
 Expected: `пройдено 27` — существующие тесты и есть проверка корректности переноса.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A && git commit -m "refactor: extract metric collection into ServerMonitor.Collection"
@@ -105,7 +105,7 @@ git add -A && git commit -m "refactor: extract metric collection into ServerMoni
 **Interfaces:**
 - Produces: `Server` с полями `Id`, `PublicId`, `Name`, `OperatingSystem`, `AgentVersion`, `ApiKeyHash`, `RegisteredAtUtc`, `LastSeenUtc`; `AppDbContext.Servers`. Используют задачи 4, 6.
 
-- [ ] **Step 1: Создать сущность**
+- [x] **Step 1: Создать сущность**
 
 ```csharp
 namespace ServerMonitor.Domain.Entities;
@@ -129,7 +129,7 @@ public class Server
 }
 ```
 
-- [ ] **Step 2: Добавить ServerId в снапшот и алерт**
+- [x] **Step 2: Добавить ServerId в снапшот и алерт**
 
 В `MetricSnapshot.cs` и `Alert.cs` добавить свойство:
 
@@ -137,7 +137,7 @@ public class Server
 public int ServerId { get; set; }
 ```
 
-- [ ] **Step 3: Описать модель в AppDbContext**
+- [x] **Step 3: Описать модель в AppDbContext**
 
 Добавить `DbSet` и настройку:
 
@@ -167,13 +167,13 @@ modelBuilder.Entity<Alert>()
     .OnDelete(DeleteBehavior.Cascade);
 ```
 
-- [ ] **Step 4: Сгенерировать миграцию**
+- [x] **Step 4: Сгенерировать миграцию**
 
 ```bash
 dotnet ef migrations add AddServers --project ServerMonitor.Infrastructure --startup-project ServerMonitor.Api
 ```
 
-- [ ] **Step 5: Дописать в миграцию привязку старых данных**
+- [x] **Step 5: Дописать в миграцию привязку старых данных**
 
 Сгенерированный `Up` создаст таблицу и добавит колонки со значением 0, что нарушит внешний ключ. Заменить тело `Up` так, чтобы порядок был: создать таблицу → вставить запись → добавить колонки → проставить значения → создать внешние ключи.
 
@@ -191,7 +191,7 @@ migrationBuilder.Sql("""
 
 Имя `this-machine` фиксированное: миграция — статический SQL, и `Environment.MachineName` записал бы имя машины разработчика в базу любого, кто развернёт проект.
 
-- [ ] **Step 6: Применить и проверить сохранность истории**
+- [x] **Step 6: Применить и проверить сохранность истории**
 
 ```bash
 dotnet ef database update --project ServerMonitor.Infrastructure --startup-project ServerMonitor.Api
@@ -203,7 +203,7 @@ docker exec servermonitor-db psql -U monitor -d servermonitor -c 'SELECT count(*
 
 Expected: `orphans = 0`, `total = 2021`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A && git commit -m "feat: add Server entity and attach existing history to it"
@@ -221,7 +221,7 @@ git add -A && git commit -m "feat: add Server entity and attach existing history
 **Interfaces:**
 - Produces: `MonitoringOptions` только с `AlertCheckIntervalSeconds` и `AlertConsecutiveSamples`; агент (задача 5) получает свой `AgentOptions`.
 
-- [ ] **Step 1: Урезать MonitoringOptions**
+- [x] **Step 1: Урезать MonitoringOptions**
 
 Удалить `CollectIntervalSeconds` и `CollectInterval`. Оставшееся:
 
@@ -238,7 +238,7 @@ public class MonitoringOptions
 }
 ```
 
-- [ ] **Step 2: Вернуть константу в MetricsCollectorService**
+- [x] **Step 2: Вернуть константу в MetricsCollectorService**
 
 Сервис удаляется на задаче 7, до тех пор ему нужен собственный интервал:
 
@@ -248,16 +248,16 @@ private readonly TimeSpan _interval = TimeSpan.FromSeconds(5);
 
 Убрать `IOptions<MonitoringOptions>` из его конструктора.
 
-- [ ] **Step 3: Убрать интервал сбора из конфигурации API**
+- [x] **Step 3: Убрать интервал сбора из конфигурации API**
 
 В `ServerMonitor.Api/appsettings.json` из секции `Monitoring` удалить строку `"CollectIntervalSeconds": 5`.
 
-- [ ] **Step 4: Проверить**
+- [x] **Step 4: Проверить**
 
 Run: `dotnet build` → `Ошибок: 0`, `Предупреждений: 0`
 Run: `dotnet test` → зелёный
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A && git commit -m "refactor: split monitoring options between agent and alerting"
@@ -281,7 +281,7 @@ git add -A && git commit -m "refactor: split monitoring options between agent an
 - Consumes: `Server` из задачи 2.
 - Produces: `ApiKeyGenerator.Generate()` → `(string Key, string Hash)`, `ApiKeyGenerator.Hash(string key)` → `string`, `ApiKeyGenerator.FixedTimeEquals(string a, string b)` → `bool`. Использует задача 5.
 
-- [ ] **Step 1: Написать падающий тест на ключи**
+- [x] **Step 1: Написать падающий тест на ключи**
 
 ```csharp
 using ServerMonitor.Infrastructure.Agents;
@@ -327,12 +327,12 @@ public class ApiKeyGeneratorTests
 }
 ```
 
-- [ ] **Step 2: Запустить — тест падает**
+- [x] **Step 2: Запустить — тест падает**
 
 Run: `dotnet test --filter ApiKeyGenerator`
 Expected: ошибка компиляции — типа `ApiKeyGenerator` не существует.
 
-- [ ] **Step 3: Реализовать генератор**
+- [x] **Step 3: Реализовать генератор**
 
 ```csharp
 using System.Security.Cryptography;
@@ -375,12 +375,12 @@ public static class ApiKeyGenerator
 }
 ```
 
-- [ ] **Step 4: Тест проходит**
+- [x] **Step 4: Тест проходит**
 
 Run: `dotnet test --filter ApiKeyGenerator`
 Expected: `пройдено 4`
 
-- [ ] **Step 5: DTO контракта**
+- [x] **Step 5: DTO контракта**
 
 `AgentRegistrationRequest.cs`:
 
@@ -424,7 +424,7 @@ public class MetricReportDto
 }
 ```
 
-- [ ] **Step 6: Контроллер регистрации**
+- [x] **Step 6: Контроллер регистрации**
 
 ```csharp
 using Microsoft.AspNetCore.Mvc;
@@ -519,7 +519,7 @@ public class AgentsController : ControllerBase
 }
 ```
 
-- [ ] **Step 7: Контроллер приёма**
+- [x] **Step 7: Контроллер приёма**
 
 ```csharp
 using Microsoft.AspNetCore.Mvc;
@@ -602,7 +602,7 @@ public class IngestController : ControllerBase
 }
 ```
 
-- [ ] **Step 8: Конфигурация**
+- [x] **Step 8: Конфигурация**
 
 В `ServerMonitor.Api/appsettings.json` добавить пустой шаблон:
 
@@ -618,7 +618,7 @@ public class IngestController : ControllerBase
 dotnet user-secrets set "Agents:EnrollmentToken" "<случайная строка>" --project ServerMonitor.Api
 ```
 
-- [ ] **Step 9: Проверить эндпоинты запросами**
+- [x] **Step 9: Проверить эндпоинты запросами**
 
 Запустить API, затем:
 
@@ -634,7 +634,7 @@ curl -sk -o /dev/null -w "%{http_code}\n" -X POST https://localhost:7212/api/age
 
 Expected: `401`
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add -A && git commit -m "feat: agent registration and metric ingest endpoints"
@@ -661,7 +661,7 @@ git add -A && git commit -m "feat: agent registration and metric ingest endpoint
 - Consumes: `IMetricsCollector`, `MetricsCollector` из задачи 1; контракт эндпоинтов из задачи 4.
 - Produces: работающий агент; `MetricBuffer` с методами `Add(MetricReport)`, `Snapshot()` → `IReadOnlyList<MetricReport>`, `Remove(int count)`, свойство `Count`.
 
-- [ ] **Step 1: Тест на буфер (падающий)**
+- [x] **Step 1: Тест на буфер (падающий)**
 
 ```csharp
 using ServerMonitor.Agent;
@@ -733,7 +733,7 @@ public class MetricBufferTests
 }
 ```
 
-- [ ] **Step 2: Создать проект агента**
+- [x] **Step 2: Создать проект агента**
 
 ```bash
 dotnet new worker -o ServerMonitor.Agent
@@ -753,7 +753,7 @@ dotnet add ServerMonitor.Tests reference ServerMonitor.Agent/ServerMonitor.Agent
 
 Удалить сгенерированный `Worker.cs`.
 
-- [ ] **Step 3: Модель отчёта и буфер**
+- [x] **Step 3: Модель отчёта и буфер**
 
 `MetricReport.cs`:
 
@@ -838,12 +838,12 @@ public class MetricBuffer
 }
 ```
 
-- [ ] **Step 4: Тест буфера проходит**
+- [x] **Step 4: Тест буфера проходит**
 
 Run: `dotnet test --filter MetricBuffer`
 Expected: `пройдено 5`
 
-- [ ] **Step 5: Настройки и состояние**
+- [x] **Step 5: Настройки и состояние**
 
 `AgentOptions.cs`:
 
@@ -906,7 +906,7 @@ public class AgentState
 }
 ```
 
-- [ ] **Step 6: Тест состояния**
+- [x] **Step 6: Тест состояния**
 
 ```csharp
 using ServerMonitor.Agent;
@@ -949,7 +949,7 @@ public class AgentStateTests
 Run: `dotnet test --filter AgentState`
 Expected: `пройдено 2`
 
-- [ ] **Step 7: Клиент API**
+- [x] **Step 7: Клиент API**
 
 `AgentClient.cs`:
 
@@ -1007,7 +1007,7 @@ public class AgentClient
 
 Ответ регистрации приходит с полями `serverId` и `apiKey` — они совпадают со свойствами `AgentState`, разбор регистронезависимый.
 
-- [ ] **Step 8: Рабочий цикл**
+- [x] **Step 8: Рабочий цикл**
 
 `AgentWorker.cs`:
 
@@ -1143,7 +1143,7 @@ public class AgentWorker : BackgroundService
 }
 ```
 
-- [ ] **Step 9: Точка входа и конфигурация**
+- [x] **Step 9: Точка входа и конфигурация**
 
 `Program.cs`:
 
@@ -1192,7 +1192,7 @@ host.Run();
 }
 ```
 
-- [ ] **Step 10: Запустить агента и убедиться, что данные доходят**
+- [x] **Step 10: Запустить агента и убедиться, что данные доходят**
 
 Задать токен агенту:
 
@@ -1212,7 +1212,7 @@ docker exec servermonitor-db psql -U monitor -d servermonitor -c 'SELECT s."Name
 
 Expected: запись с настоящим именем машины, свежим `LastSeenUtc` и растущим числом замеров.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add -A && git commit -m "feat: standalone monitoring agent with buffering and self-registration"
@@ -1238,7 +1238,7 @@ git add -A && git commit -m "feat: standalone monitoring agent with buffering an
 - Consumes: `Server`, эндпоинты задач 2 и 4.
 - Produces: `ServerHealth.FromLastSeen(DateTime? lastSeenUtc, DateTime nowUtc)` → `ServerHealth` (`Online`, `Stale`, `Offline`).
 
-- [ ] **Step 1: Тест на вычисление статуса (падающий)**
+- [x] **Step 1: Тест на вычисление статуса (падающий)**
 
 ```csharp
 using ServerMonitor.Domain.Entities;
@@ -1270,7 +1270,7 @@ public class ServerHealthTests
 }
 ```
 
-- [ ] **Step 2: Реализовать расчёт статуса**
+- [x] **Step 2: Реализовать расчёт статуса**
 
 `SeverMonitor.Domain/Entities/ServerHealth.cs`:
 
@@ -1310,7 +1310,7 @@ public static class ServerHealthCalculator
 Run: `dotnet test --filter ServerHealth`
 Expected: `пройдено 6`
 
-- [ ] **Step 3: DTO списка серверов**
+- [x] **Step 3: DTO списка серверов**
 
 ```csharp
 namespace ServerMonitor.Api.Dtos;
@@ -1329,7 +1329,7 @@ public class ServerSummaryDto
 }
 ```
 
-- [ ] **Step 4: Контроллер серверов**
+- [x] **Step 4: Контроллер серверов**
 
 ```csharp
 using Microsoft.AspNetCore.Mvc;
@@ -1407,7 +1407,7 @@ public class ServersController : ControllerBase
 }
 ```
 
-- [ ] **Step 5: Перевести MetricsController под сервер**
+- [x] **Step 5: Перевести MetricsController под сервер**
 
 Заменить атрибут маршрута класса:
 
@@ -1432,7 +1432,7 @@ if (serverId is null)
 
 и в каждый запрос метрик добавить `.Where(m => m.ServerId == serverId)`.
 
-- [ ] **Step 6: Фильтр по серверу в алертах**
+- [x] **Step 6: Фильтр по серверу в алертах**
 
 В `AlertsController.GetAlerts` добавить параметр и фильтр:
 
@@ -1460,7 +1460,7 @@ if (serverId is not null)
 }
 ```
 
-- [ ] **Step 7: Клиент во фронтенде**
+- [x] **Step 7: Клиент во фронтенде**
 
 `ServerMonitor.Web/Models/ServerSummary.cs` — копия `ServerSummaryDto` (тот же приём, что и для остальных моделей: связь только через форму JSON).
 
@@ -1477,13 +1477,13 @@ public async Task<List<ServerSummary>> GetServersAsync(CancellationToken cancell
 Существующие методы получают первым параметром `Guid serverId`, а адреса становятся
 `api/servers/{serverId}/metrics/...`.
 
-- [ ] **Step 8: Страница парка**
+- [x] **Step 8: Страница парка**
 
 `Fleet.razor` — `@page "/"` и `@page "/servers"`, таблица-«стойка» из ячеек по образцу `.metric-panel`: имя сервера, ОС, статус точкой в цвете `--status-ok/warn/crit`, три текущих значения, время последнего замера. Ячейка — ссылка на `/servers/{publicId}`.
 
 Стили — в `Fleet.razor.css`, повторяя приёмы `Dashboard.razor.css`: `gap: 1px` на фоне `var(--border)`, `--radius`, mono для чисел.
 
-- [ ] **Step 9: Дашборд как детальная страница**
+- [x] **Step 9: Дашборд как детальная страница**
 
 В `Dashboard.razor` заменить директиву страницы:
 
@@ -1499,15 +1499,15 @@ public async Task<List<ServerSummary>> GetServersAsync(CancellationToken cancell
 
 Все вызовы `ApiClient` получают `PublicId`. В шапку добавить ссылку «← Fleet».
 
-- [ ] **Step 10: Пункт меню**
+- [x] **Step 10: Пункт меню**
 
 В `TopNav.razor` заменить пункт `Dashboard` на `Fleet` со ссылкой `href=""` и `Match="NavLinkMatch.All"`.
 
-- [ ] **Step 11: Проверить в браузере**
+- [x] **Step 11: Проверить в браузере**
 
 Запустить API, агента и Web. На `/` — список серверов со статусами; клик открывает дашборд машины; History и Alerts работают.
 
-- [ ] **Step 12: Commit**
+- [x] **Step 12: Commit**
 
 ```bash
 git add -A && git commit -m "feat: fleet screen and per-server read endpoints"
@@ -1526,7 +1526,7 @@ git add -A && git commit -m "feat: fleet screen and per-server read endpoints"
 **Interfaces:**
 - Consumes: работающий агент из задачи 5 — он полностью заменяет удаляемый сервис.
 
-- [ ] **Step 1: Убедиться, что агент работает**
+- [x] **Step 1: Убедиться, что агент работает**
 
 ```bash
 docker exec servermonitor-db psql -U monitor -d servermonitor -c 'SELECT max("TimestampUtc") FROM "MetricSnapshots";'
@@ -1534,7 +1534,7 @@ docker exec servermonitor-db psql -U monitor -d servermonitor -c 'SELECT max("Ti
 
 Expected: метка времени не старше минуты — данные идут от агента, удаление сбора ничего не оборвёт.
 
-- [ ] **Step 2: Удалить сервис и его регистрацию**
+- [x] **Step 2: Удалить сервис и его регистрацию**
 
 Удалить файл `MetricsCollectorService.cs`. Из `ServerMonitor.Api/Program.cs` убрать строки:
 
@@ -1545,18 +1545,18 @@ builder.Services.AddHostedService<MetricsCollectorService>();
 
 и соответствующий `using ServerMonitor.Collection;`.
 
-- [ ] **Step 3: Убрать ссылку на Collection**
+- [x] **Step 3: Убрать ссылку на Collection**
 
 Удалить `<ProjectReference>` на `ServerMonitor.Collection` из `ServerMonitor.Infrastructure.csproj`.
 
-- [ ] **Step 4: Проверить**
+- [x] **Step 4: Проверить**
 
 Run: `dotnet build` → `Ошибок: 0`, `Предупреждений: 0`
 Run: `dotnet test` → зелёный
 
 Запустить API и агента, убедиться, что новые замеры продолжают появляться и в API-логах больше нет строк `Snapshot saved`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A && git commit -m "refactor: remove in-process collection from the API"
