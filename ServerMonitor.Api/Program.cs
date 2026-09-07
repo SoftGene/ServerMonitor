@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
+using ServerMonitor.Infrastructure.Alerting;
 using ServerMonitor.Infrastructure.Data;
 using ServerMonitor.Infrastructure.Monitoring;
 using ServerMonitor.Infrastructure.Telegram;
@@ -28,7 +29,14 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 // Метрики API больше не снимает: их присылают агенты через POST api/ingest.
-// Здесь остаётся только слежение за порогами и оповещения.
+
+// Каналы доставки. Журнальный нужен всегда — он гарантирует, что событие где-то видно
+// даже без настроенного Telegram.
+builder.Services.AddSingleton<IAlertChannel, LogAlertChannel>();
+builder.Services.AddSingleton<IAlertChannel, TelegramAlertChannel>();
+
+// Проверка правил не зависит ни от одного канала: раньше ненастроенный бот выключал её целиком.
+builder.Services.AddHostedService<AlertingService>();
 builder.Services.AddHostedService<TelegramBotService>();
 
 var app = builder.Build();

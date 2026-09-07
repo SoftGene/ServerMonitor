@@ -22,12 +22,25 @@ public class LogAlertChannel : IAlertChannel
 
         if (notification.Metric == MetricKind.Availability)
         {
-            _logger.LogWarning(
-                "Alert {State}: {Server} unreachable for {Minutes:F0} min (threshold {Threshold:F0} min).",
-                state,
-                notification.ServerName,
-                notification.Value,
-                notification.Threshold);
+            // Формулировки разные не для красоты: «unreachable for 2 min» в момент
+            // возвращения читается как «всё ещё недоступна» и вводит в заблуждение.
+            if (notification.Kind == AlertKind.Triggered)
+            {
+                _logger.LogWarning(
+                    "Alert {State}: {Server} unreachable for {Minutes:F0} min (threshold {Threshold:F0} min).",
+                    state,
+                    notification.ServerName,
+                    notification.Value,
+                    notification.Threshold);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Alert {State}: {Server} is reporting again after {Minutes:F0} min of silence.",
+                    state,
+                    notification.ServerName,
+                    notification.Value);
+            }
 
             return Task.CompletedTask;
         }

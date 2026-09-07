@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServerMonitor.Api.Dtos;
 using ServerMonitor.Domain.Entities;
@@ -31,11 +31,12 @@ public class ServersController : ControllerBase
             .ToListAsync(cancellationToken);
 
         var now = DateTime.UtcNow;
+        var offlineAfter = await ReadOfflineThresholdAsync(cancellationToken);
         var result = new List<ServerSummaryDto>(servers.Count);
 
         foreach (var server in servers)
         {
-            result.Add(await BuildSummaryAsync(server, now, cancellationToken));
+            result.Add(await BuildSummaryAsync(server, now, offlineAfter, cancellationToken));
         }
 
         return Ok(result);
@@ -54,12 +55,31 @@ public class ServersController : ControllerBase
             return NotFound("Server not found.");
         }
 
-        return Ok(await BuildSummaryAsync(server, DateTime.UtcNow, cancellationToken));
+        var offlineAfter = await ReadOfflineThresholdAsync(cancellationToken);
+
+        return Ok(await BuildSummaryAsync(server, DateTime.UtcNow, offlineAfter, cancellationToken));
+    }
+
+    /// <summary>
+    /// Порог «машина пропала» из настроек. Экран парка и оповещения обязаны судить по одной
+    /// границе: разойдись они, интерфейс показывал бы «всё хорошо» там, где уже ушёл алерт.
+    /// </summary>
+    private async Task<TimeSpan> ReadOfflineThresholdAsync(CancellationToken cancellationToken)
+    {
+        var seconds = await _dbContext.AppSettings
+            .AsNoTracking()
+            .Select(a => (int?)a.OfflineAfterSeconds)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return seconds is null or <= 0
+            ? ServerHealthCalculator.OfflineAfter
+            : TimeSpan.FromSeconds(seconds.Value);
     }
 
     private async Task<ServerSummaryDto> BuildSummaryAsync(
         Domain.Entities.Server server,
         DateTime nowUtc,
+        TimeSpan offlineAfter,
         CancellationToken cancellationToken)
     {
         // По отдельному запросу на сервер. Для парка из десятка машин это дёшево,
@@ -83,7 +103,9 @@ public class ServersController : ControllerBase
             OperatingSystem = server.OperatingSystem,
             AgentVersion = server.AgentVersion,
             LastSeenUtc = server.LastSeenUtc,
-            Health = ServerHealthCalculator.FromLastSeen(server.LastSeenUtc, nowUtc).ToString(),
+            Health = ServerHealthCalculator
+                .FromLastSeen(server.LastSeenUtc, nowUtc, offlineAfter: offlineAfter)
+                .ToString(),
             CpuUsagePercent = latest?.CpuUsagePercent,
             MemoryUsagePercent = latest?.MemoryUsagePercent,
             DiskUsagePercent = latest?.DiskUsagePercent,
