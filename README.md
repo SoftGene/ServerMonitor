@@ -59,7 +59,7 @@ Telegram client.
 
 | Project | Role |
 |---------|------|
-| `SeverMonitor.Domain` | Entities and domain rules. No dependencies at all. |
+| `ServerMonitor.Domain` | Entities and domain rules. No dependencies at all. |
 | `ServerMonitor.Collection` | Reading metrics off a machine. |
 | `ServerMonitor.Agent` | The program installed on each watched machine. |
 | `ServerMonitor.Infrastructure` | EF Core, migrations, API keys, Telegram. |
@@ -221,6 +221,11 @@ script, `/healthz`) → retention.
 
 ## A note on the name
 
-The repository started out as `SeverMonitor` — a typo. The project file has been renamed, the
-folder and solution file have not, because renaming those touches paths in several places and
-deserves its own commit. It is a small, honest piece of history.
+The repository started out as `SeverMonitor` — a typo, missing an `r`. It has been corrected
+in stages, because renaming a project folder touches paths in every `.csproj` that references
+it as well as the solution file, and that deserved its own commit rather than riding along
+with a feature.
+
+A detail worth keeping from it: a project's file name and its folder name are not required to
+match, so the build ran happily with the mismatch for a month. A compiler will never point out
+this kind of mistake.

@@ -42,7 +42,7 @@ flowchart LR
 собранные сборки — можно посмотреть.
 
 **Решение (solution)** — файл, который перечисляет проекты, чтобы IDE и команда `dotnet
-build` знали, что собирать вместе. У нас это `SeverMonitor.slnx` в корне.
+build` знали, что собирать вместе. У нас это `ServerMonitor.slnx` в корне.
 
 Ещё понадобится:
 
@@ -61,7 +61,7 @@ build` знали, что собирать вместе. У нас это `Sever
 
 | Проект | Тип | Что внутри | От кого зависит |
 |--------|-----|------------|-----------------|
-| `SeverMonitor.Domain` | библиотека | сущности: `Server`, `MetricSnapshot`, `Alert`, `AppSettings` | ни от кого |
+| `ServerMonitor.Domain` | библиотека | сущности: `Server`, `MetricSnapshot`, `Alert`, `AppSettings` | ни от кого |
 | `ServerMonitor.Collection` | библиотека | снятие метрик с машины | Domain |
 | `ServerMonitor.Agent` | консольное приложение | программа для наблюдаемой машины | Collection |
 | `ServerMonitor.Infrastructure` | библиотека | доступ к БД, ключи агентов, Telegram-бот | Domain |
@@ -77,7 +77,7 @@ build` знали, что собирать вместе. У нас это `Sever
 ### Domain — «что такое вещи в нашей предметной области»
 
 Самый маленький и самый важный проект. Целиком — три файла по десять строк. Вот весь
-[`MetricSnapshot.cs`](../../SeverMonitor.Domain/Entities/MetricSnapshot.cs):
+[`MetricSnapshot.cs`](../../ServerMonitor.Domain/Entities/MetricSnapshot.cs):
 
 ```csharp
 namespace ServerMonitor.Domain.Entities;
@@ -99,7 +99,7 @@ public class MetricSnapshot
 ```
 
 Здесь нет ни одного `using` чужой библиотеки, и в
-[`ServerMonitor.Domain.csproj`](../../SeverMonitor.Domain/ServerMonitor.Domain.csproj) нет ни
+[`ServerMonitor.Domain.csproj`](../../ServerMonitor.Domain/ServerMonitor.Domain.csproj) нет ни
 одного `<PackageReference>` — проект не знает ни про базу данных, ни про HTTP, ни про
 Telegram. Он знает только, что «замер метрик — это набор чисел с меткой времени».
 
@@ -173,7 +173,7 @@ Infrastructure, ни Api. У него есть собственные копии
 ```mermaid
 flowchart RL
     Api["ServerMonitor.Api<br/><i>контроллеры, DTO</i>"] --> Infra["ServerMonitor.Infrastructure<br/><i>EF Core, ключи, Telegram</i>"]
-    Infra --> Domain["SeverMonitor.Domain<br/><i>сущности</i>"]
+    Infra --> Domain["ServerMonitor.Domain<br/><i>сущности</i>"]
     Agent["ServerMonitor.Agent<br/><i>сбор на машине</i>"] --> Collection["ServerMonitor.Collection<br/><i>/proc, WinAPI</i>"]
     Collection --> Domain
     Web["ServerMonitor.Web<br/><i>Blazor UI</i>"] -.->|"только HTTP/JSON"| Api
@@ -292,9 +292,9 @@ builder.Services.AddHttpClient<MetricsApiClient>(client =>
 ## 7. Дерево файлов
 
 ```
-SeverMonitor.slnx                     решение: список проектов
+ServerMonitor.slnx                    решение: список проектов
 │
-├── SeverMonitor.Domain/              ← ядро, без зависимостей
+├── ServerMonitor.Domain/             ← ядро, без зависимостей
 │   └── Entities/                     MetricSnapshot, Alert, AppSettings
 │
 ├── ServerMonitor.Collection/         ← снятие метрик с машины
@@ -346,12 +346,15 @@ SeverMonitor.slnx                     решение: список проект�
 Честный список того, что в проекте сделано неаккуратно. Ничего критичного, но знать полезно —
 и на собеседовании такие вещи лучше называть самому.
 
-- **Остатки опечатки в именах.** Изначально проект домена назывался `SeverMonitor.Domain`
-  (пропущена буква `r`). Файл проекта уже переименован в `ServerMonitor.Domain.csproj`, но
-  **папка** по-прежнему `SeverMonitor.Domain/`, и файл решения — `SeverMonitor.slnx`.
-  Переименование папки задевает пути в `.csproj` и `.slnx`, поэтому делается отдельным
-  аккуратным шагом. Обрати внимание: имя файла проекта и имя папки **не обязаны** совпадать —
-  сборка это спокойно переживает, что мы и видим.
+- **Опечатка в именах — исправлена.** Изначально проект домена назывался `SeverMonitor.Domain`
+  (пропущена буква `r`), и то же было в имени файла решения. Сначала переименовали только файл
+  проекта, а папка и решение остались со старым именем: переименование задевает пути в
+  `.csproj` и `.slnx`, поэтому его сделали отдельным шагом. Сейчас всё приведено к
+  `ServerMonitor.Domain/` и `ServerMonitor.slnx`.
+
+  Попутно выяснилась деталь, полезная сама по себе: имя файла проекта и имя папки **не обязаны**
+  совпадать — сборка спокойно живёт с расхождением, и месяц так и жила. Из этого следует, что
+  такую опечатку компилятор никогда не подсветит, а заметить её можно только глазами.
 - **Дублирование моделей** между Api и Web — обсуждали выше, осознанная плата за
   независимость фронтенда.
 - **API открыт всему миру.** Ни аутентификации, ни авторизации: любой, кто дотянется до

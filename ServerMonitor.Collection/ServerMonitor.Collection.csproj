@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\SeverMonitor.Domain\ServerMonitor.Domain.csproj" />
+    <ProjectReference Include="..\ServerMonitor.Domain\ServerMonitor.Domain.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

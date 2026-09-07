@@ -131,7 +131,7 @@ namespace ServerMonitor.Infrastructure.Monitoring
 
 ### Свойства против полей
 
-В [`MetricSnapshot`](../../SeverMonitor.Domain/Entities/MetricSnapshot.cs):
+В [`MetricSnapshot`](../../ServerMonitor.Domain/Entities/MetricSnapshot.cs):
 
 ```csharp
 public double CpuUsagePercent { get; set; }
