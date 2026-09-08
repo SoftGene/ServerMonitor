@@ -9,9 +9,9 @@ public class AppSettings
     public bool AlertsEnabled { get; set; }
 
     /// <summary>
-    /// Сколько секунд молчания считать пропажей машины. Тот же порог использует экран парка,
-    /// поэтому он один на систему: расходись они, интерфейс и оповещения противоречили бы
-    /// друг другу.
+    /// How many seconds of silence count as a machine having gone missing. The fleet screen
+    /// uses the same threshold, so there is one value for the whole system: were they to
+    /// diverge, the interface and the notifications would contradict each other.
     /// </summary>
     public int OfflineAfterSeconds { get; set; } = 300;
 

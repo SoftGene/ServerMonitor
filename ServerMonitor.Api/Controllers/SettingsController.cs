@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ServerMonitor.Api.Auth;
 using ServerMonitor.Api.Dtos;
 using ServerMonitor.Infrastructure.Data;
 
@@ -7,6 +8,7 @@ namespace ServerMonitor.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[RequireServiceKey]
 public class SettingsController : ControllerBase
 {
     private readonly AppDbContext _dbContext;
@@ -45,8 +47,8 @@ public class SettingsController : ControllerBase
             return BadRequest("Thresholds must be between 1 and 100.");
         }
 
-        // Нижняя граница не косметическая: порог меньше интервала сбора означал бы, что
-        // машина «пропадает» между двумя нормальными замерами.
+        // The lower bound is not cosmetic: a threshold shorter than the collection interval
+        // would mean a machine "disappears" between two perfectly normal readings.
         if (dto.OfflineAfterSeconds < 30 || dto.OfflineAfterSeconds > 86400)
         {
             return BadRequest("Offline threshold must be between 30 seconds and 24 hours.");

@@ -1,16 +1,16 @@
-using System.Globalization;
+﻿using System.Globalization;
 using ServerMonitor.Collection;
 
 namespace ServerMonitor.Tests.Monitoring;
 
 /// <summary>
-/// Тесты разбора текстовых форматов /proc. Настоящий Linux для них не нужен:
-/// на вход подаются те же строки, что отдаёт ядро.
+/// Tests for parsing the /proc text formats. No real Linux is needed: the input is the same
+/// text the kernel would hand over.
 /// </summary>
 public class ProcParserTests
 {
-    // Фрагмент настоящего /proc/meminfo. Между двоеточием и числом — много пробелов,
-    // именно поэтому в разборе стоит RemoveEmptyEntries.
+    // A fragment of a real /proc/meminfo. There are many spaces between the colon and the
+    // number, which is exactly why the parser uses RemoveEmptyEntries.
     private const string MemInfoSample = """
         MemTotal:       16316412 kB
         MemFree:          264132 kB
@@ -33,8 +33,8 @@ public class ProcParserTests
     [Fact]
     public void ParseMemInfo_IgnoresMemFree()
     {
-        // MemFree намеренно не используется: свободную память ядро отдаёт под кэш,
-        // и по ней система всегда выглядела бы переполненной.
+        // MemFree is deliberately unused: the kernel gives free memory to the cache, so by
+        // that measure the system would always look full.
         var (_, availableKb) = ProcParser.ParseMemInfo(MemInfoLines);
 
         Assert.NotEqual(264132, availableKb);
@@ -61,8 +61,8 @@ public class ProcParserTests
     [Fact]
     public void ParseUptimeSeconds_UsesInvariantCulture()
     {
-        // Регрессионный тест на реальную ошибку: без явной инвариантной культуры
-        // разбор "348915.42" падал в культурах, где разделитель дробной части — запятая.
+        // A regression test for a real bug: without an explicit invariant culture, parsing
+        // "348915.42" threw in cultures where the decimal separator is a comma.
         var original = Thread.CurrentThread.CurrentCulture;
 
         try
@@ -92,16 +92,16 @@ public class ProcParserTests
     {
         var times = ProcParser.ParseCpuTimes("cpu  100 20 30 500 40 5 5 0 0 0");
 
-        // Простой = idle + iowait = 500 + 40
+        // Idle = idle + iowait = 500 + 40
         Assert.Equal(540, times.Idle);
-        // Всего = 100 + 20 + 30 + 500 + 40 + 5 + 5
+        // Total = 100 + 20 + 30 + 500 + 40 + 5 + 5
         Assert.Equal(700, times.Total);
     }
 
     [Theory]
-    [InlineData("cpu 1 2 3")]                    // слишком мало полей
-    [InlineData("intr 1 2 3 4 5 6 7 8")]         // не та строка файла
-    [InlineData("")]                             // пустая строка
+    [InlineData("cpu 1 2 3")]                    // too few fields
+    [InlineData("intr 1 2 3 4 5 6 7 8")]         // the wrong line of the file
+    [InlineData("")]                             // an empty line
     public void ParseCpuTimes_ThrowsOnMalformedInput(string line)
     {
         Assert.Throws<FormatException>(() => ProcParser.ParseCpuTimes(line));
@@ -120,7 +120,7 @@ public class ProcParserTests
         var first = new CpuTimes { Idle = 95000, Total = 100000 };
         var second = new CpuTimes { Idle = 95300, Total = 100400 };
 
-        // За интервал: всего 400 тактов, из них 300 в простое → занято 25 %
+        // Over the interval: 400 ticks total, 300 of them idle, so 25% busy
         var usage = ProcParser.CalculateCpuUsagePercent(first, second);
 
         Assert.Equal(25, usage);
@@ -138,7 +138,7 @@ public class ProcParserTests
     [Fact]
     public void CalculateCpuUsagePercent_UsesFloatingPointDivision()
     {
-        // Защита от целочисленного деления: при нём результат всегда был бы ровно 100 %.
+        // Guards against integer division, which would always yield exactly 100%.
         var first = new CpuTimes { Idle = 0, Total = 0 };
         var second = new CpuTimes { Idle = 1, Total = 3 };
 
@@ -167,7 +167,7 @@ public class ProcParserTests
     [Fact]
     public void CalculateCpuUsagePercent_ClampsIdleGrowingFasterThanTotal()
     {
-        // Такое бывает при рассинхронизации счётчиков; отрицательная загрузка недопустима.
+        // This happens when counters fall out of sync; a negative load is not acceptable.
         var first = new CpuTimes { Idle = 0, Total = 0 };
         var second = new CpuTimes { Idle = 200, Total = 100 };
 

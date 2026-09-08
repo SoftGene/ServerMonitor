@@ -1,5 +1,6 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ServerMonitor.Api.Auth;
 using ServerMonitor.Api.Dtos;
 using ServerMonitor.Domain.Entities;
 using ServerMonitor.Infrastructure.Data;
@@ -7,11 +8,12 @@ using ServerMonitor.Infrastructure.Data;
 namespace ServerMonitor.Api.Controllers;
 
 /// <summary>
-/// Алерты остались общим списком по всему парку: вопрос «где вообще что-то сломалось»
-/// относится ко всем машинам сразу. Сузить до одной можно параметром serverId.
+/// Alerts stay a fleet-wide list: the question "where did something break" is about every
+/// machine at once. The serverId parameter narrows it to one.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[RequireServiceKey]
 public class AlertsController : ControllerBase
 {
     private readonly AppDbContext _dbContext;
@@ -32,16 +34,16 @@ public class AlertsController : ControllerBase
             return BadRequest("Count must be between 1 and 500.");
         }
 
-        // Соединение с серверами нужно, чтобы в списке было видно имя машины:
-        // навигационного свойства у Alert нет, связь описана только внешним ключом.
+        // The join to servers is what puts a machine name in the list: Alert has no
+        // navigation property, only a foreign key.
         var query = from alert in _dbContext.Alerts.AsNoTracking()
                     join server in _dbContext.Servers.AsNoTracking() on alert.ServerId equals server.Id
                     select new { Alert = alert, server.Name, server.PublicId };
 
         if (serverId is not null)
         {
-            // Существование машины проверяем отдельно: пустой ответ для несуществующего
-            // сервера выглядел бы как «алертов нет», хотя нет самого сервера.
+            // Existence is checked separately: an empty answer for a server that does not
+            // exist would read as "no alerts" when in fact there is no such machine.
             var serverExists = await _dbContext.Servers
                 .AsNoTracking()
                 .AnyAsync(s => s.PublicId == serverId, cancellationToken);
@@ -59,8 +61,8 @@ public class AlertsController : ControllerBase
             .Take(count)
             .ToListAsync(cancellationToken);
 
-        // Сначала материализуем записи, потом переводим перечисления в строки:
-        // вызов ToDisplayName() в SQL не переводится.
+        // Materialise the rows first and convert the enums afterwards: ToDisplayName() does
+        // not translate to SQL.
         var dtos = rows
             .Select(row => new AlertDto
             {

@@ -3,8 +3,8 @@ namespace ServerMonitor.Domain.Entities;
 public static class MetricKindExtensions
 {
     /// <summary>
-    /// Человекочитаемое имя метрики. Оно же используется как значение в базе, чтобы
-    /// записи, сделанные до перехода на перечисления, продолжали читаться.
+    /// The human-readable name of a metric. The same string is what goes into the database,
+    /// so rows written before the switch to enums still read back correctly.
     /// </summary>
     public static string ToDisplayName(this MetricKind kind) =>
         kind == MetricKind.Cpu ? "CPU" : kind.ToString();

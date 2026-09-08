@@ -1,20 +1,20 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 
 namespace ServerMonitor.Infrastructure.Agents;
 
-/// <summary>Создание и проверка ключей, которыми агенты подписывают отправку метрик.</summary>
+/// <summary>Creation and checking of the keys agents use when sending metrics.</summary>
 public static class ApiKeyGenerator
 {
     /// <summary>
-    /// Создаёт ключ агента и его хеш. Ключ возвращается вызывающему один раз — при
-    /// регистрации; в базе остаётся только хеш, восстановить из него ключ нельзя.
+    /// Creates an agent key and its hash. The key is handed to the caller once, at
+    /// registration; only the hash is stored, and the key cannot be recovered from it.
     /// </summary>
     public static (string Key, string Hash) Generate()
     {
         var bytes = RandomNumberGenerator.GetBytes(32);
 
-        // base64url: ключ ездит в HTTP-заголовке, и символы + / = там лишние.
+        // base64url: the key travels in an HTTP header, where + / and = are unwelcome.
         var key = Convert.ToBase64String(bytes)
             .TrimEnd('=')
             .Replace('+', '-')
@@ -24,11 +24,12 @@ public static class ApiKeyGenerator
     }
 
     /// <summary>
-    /// SHA-256 без соли и растяжения.
+    /// SHA-256 with no salt and no stretching.
     /// <para>
-    /// Для паролей так делать нельзя — их подбирают по словарю, и нужен медленный хеш вроде
-    /// bcrypt. Здесь же ключ — 32 случайных байта: словаря не существует, а перебор 2^256
-    /// вариантов невозможен. Медленный хеш дал бы только задержку на каждом приёме метрик.
+    /// This would be wrong for passwords, which are attacked with a dictionary and need a
+    /// slow hash such as bcrypt. A key here is 32 random bytes: no dictionary exists and
+    /// 2^256 possibilities cannot be searched. A slow hash would only add latency to every
+    /// metric that arrives.
     /// </para>
     /// </summary>
     public static string Hash(string key)
@@ -39,8 +40,8 @@ public static class ApiKeyGenerator
     }
 
     /// <summary>
-    /// Сравнение за постоянное время. Обычное сравнение строк выходит на первом различии,
-    /// и по времени ответа можно посимвольно угадать секрет.
+    /// Constant-time comparison. An ordinary string comparison returns at the first
+    /// difference, and the response time then reveals the secret one character at a time.
     /// </summary>
     public static bool FixedTimeEquals(string left, string right)
     {

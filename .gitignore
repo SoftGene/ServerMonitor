@@ -363,3 +363,8 @@ MigrationBackup/
 FodyWeavers.xsd
 # Локальные секреты (docker compose)
 .env
+
+# The old misspelled solution file. Visual Studio recreates it while it still remembers the
+# pre-rename solution; ignoring it keeps a stray copy out of git if it comes back.
+SeverMonitor.slnx
+SeverMonitor.slnLaunch.user

@@ -1,4 +1,4 @@
-.metric-card {
+﻿.metric-card {
     background: var(--surface);
     padding: 20px 24px 22px;
     height: 100%;
@@ -76,7 +76,7 @@
     transition: width 0.5s ease;
 }
 
-/* BarColor приходит инлайн-стилем из @code — переводим на токены тем */
+/* BarColor arrives as an inline style from @code — mapped onto the theme tokens */
 .metric-bar-fill[style*="#10b981"] { background: var(--status-ok) !important; }
 .metric-bar-fill[style*="#f59e0b"] { background: var(--status-warn) !important; }
 .metric-bar-fill[style*="#ef4444"] { background: var(--status-crit) !important; }

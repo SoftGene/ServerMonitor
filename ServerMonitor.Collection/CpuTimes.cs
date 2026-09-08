@@ -1,14 +1,14 @@
-namespace ServerMonitor.Collection;
+﻿namespace ServerMonitor.Collection;
 
 /// <summary>
-/// Накопленные счётчики времени процессора на момент замера.
-/// Загрузка вычисляется как разница между двумя такими замерами.
+/// Accumulated CPU time counters at the moment of a reading.
+/// Usage is calculated as the difference between two such readings.
 /// </summary>
 public readonly struct CpuTimes
 {
-    /// <summary>Время простоя (в тактах или интервалах, зависит от источника).</summary>
+    /// <summary>Idle time, in ticks or intervals depending on the source.</summary>
     public long Idle { get; init; }
 
-    /// <summary>Суммарное время во всех состояниях, включая простой.</summary>
+    /// <summary>Total time across all states, idle included.</summary>
     public long Total { get; init; }
 }

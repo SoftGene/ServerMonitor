@@ -1,17 +1,19 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServerMonitor.Domain.Entities;
 using ServerMonitor.Infrastructure.Data;
+using ServerMonitor.Api.Auth;
 using ServerMonitor.Api.Dtos;
 
 namespace ServerMonitor.Api.Controllers;
 
 /// <summary>
-/// Чтение метрик конкретной машины. Маршрут вложен в сервер, потому что замер без
-/// машины смысла не имеет: раньше он подразумевался единственным, теперь называется явно.
+/// Reading the metrics of one machine. The route is nested under the server because a
+/// reading without a machine has no meaning: it used to be implied, now it is named.
 /// </summary>
 [ApiController]
 [Route("api/servers/{publicId:guid}/metrics")]
+[RequireServiceKey]
 public class MetricsController : ControllerBase
 {
     private readonly AppDbContext _dbContext;
@@ -22,8 +24,8 @@ public class MetricsController : ControllerBase
     }
 
     /// <summary>
-    /// Переводит публичный идентификатор во внутренний ключ. Наружу отдаётся только
-    /// PublicId, а связи внутри базы построены на числовом Id.
+    /// Resolves the public identifier to the internal key. Only PublicId ever goes out,
+    /// while relations inside the database are built on the numeric Id.
     /// </summary>
     private async Task<int?> ResolveServerIdAsync(Guid publicId, CancellationToken cancellationToken)
     {
@@ -106,8 +108,8 @@ public class MetricsController : ControllerBase
             {
                 TimestampUtc = m.TimestampUtc,
                 CpuUsagePercent = m.CpuUsagePercent,
-                // Здесь нельзя использовать m.MemoryUsagePercent: проекция выполняется
-                // на стороне PostgreSQL, а вычисляемое свойство C# в SQL не переводится.
+                // m.MemoryUsagePercent cannot be used here: the projection runs on the
+                // PostgreSQL side, and a computed C# property does not translate to SQL.
                 MemoryUsagePercent = m.MemoryTotalMb > 0 ? Math.Round(m.MemoryUsedMb / m.MemoryTotalMb * 100, 1) : 0,
                 DiskUsagePercent = m.DiskTotalGb > 0 ? Math.Round(m.DiskUsedGb / m.DiskTotalGb * 100, 1) : 0
             })
@@ -180,7 +182,7 @@ public class MetricsController : ControllerBase
             {
                 TimestampUtc = m.TimestampUtc,
                 CpuUsagePercent = m.CpuUsagePercent,
-                // См. комментарий в GetHistory: проекция считается в SQL.
+                // See the comment in GetHistory: the projection is computed in SQL.
                 MemoryUsagePercent = m.MemoryTotalMb > 0
                     ? Math.Round(m.MemoryUsedMb / m.MemoryTotalMb * 100, 1)
                     : 0,

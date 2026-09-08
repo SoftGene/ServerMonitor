@@ -1,9 +1,18 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
+using ServerMonitor.Api.Commands;
 using ServerMonitor.Infrastructure.Alerting;
+using ServerMonitor.Infrastructure.Auth;
 using ServerMonitor.Infrastructure.Data;
 using ServerMonitor.Infrastructure.Monitoring;
 using ServerMonitor.Infrastructure.Telegram;
+
+// Parse the command BEFORE creating the builder: that one feeds args to the configuration
+// provider, which throws a FormatException on a bare word like "reset-password".
+if (args is ["reset-password", var accountName])
+{
+    return await ResetPasswordCommand.RunAsync(accountName);
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,14 +37,21 @@ builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-// Метрики API больше не снимает: их присылают агенты через POST api/ingest.
+// The API no longer collects metrics: agents send them via POST api/ingest.
 
-// Каналы доставки. Журнальный нужен всегда — он гарантирует, что событие где-то видно
-// даже без настроенного Telegram.
+// Accounts. The throttle is a singleton: the counters of failed attempts are shared across
+// the application, otherwise every request would start counting afresh and there would be no
+// protection at all.
+builder.Services.AddSingleton<PasswordService>();
+builder.Services.AddSingleton<LoginThrottle>();
+builder.Services.AddScoped<UserService>();
+
+// Delivery channels. The log channel is always present — it guarantees an event is visible
+// somewhere even with no Telegram configured.
 builder.Services.AddSingleton<IAlertChannel, LogAlertChannel>();
 builder.Services.AddSingleton<IAlertChannel, TelegramAlertChannel>();
 
-// Проверка правил не зависит ни от одного канала: раньше ненастроенный бот выключал её целиком.
+// Rule checking depends on no channel: an unconfigured bot used to switch it off entirely.
 builder.Services.AddHostedService<AlertingService>();
 builder.Services.AddHostedService<TelegramBotService>();
 
@@ -55,3 +71,5 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+return 0;

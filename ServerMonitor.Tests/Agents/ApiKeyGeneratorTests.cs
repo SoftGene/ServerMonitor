@@ -1,4 +1,4 @@
-using ServerMonitor.Infrastructure.Agents;
+﻿using ServerMonitor.Infrastructure.Agents;
 
 namespace ServerMonitor.Tests.Agents;
 
@@ -25,7 +25,7 @@ public class ApiKeyGeneratorTests
     [Fact]
     public void Hash_DoesNotContainTheKeyItself()
     {
-        // В базе лежит только хеш: утечка дампа не должна отдавать рабочие ключи.
+        // Only the hash is stored: a leaked dump must not hand out working keys.
         var generated = ApiKeyGenerator.Generate();
 
         Assert.DoesNotContain(generated.Key, generated.Hash);
@@ -36,8 +36,8 @@ public class ApiKeyGeneratorTests
     {
         var generated = ApiKeyGenerator.Generate();
 
-        // 32 случайных байта в base64url — перебирать нечего, поэтому медленный хеш не нужен.
-        Assert.True(generated.Key.Length >= 40, $"Ключ слишком короткий: {generated.Key.Length}.");
+        // 32 random bytes in base64url — nothing to enumerate, so no slow hash is needed.
+        Assert.True(generated.Key.Length >= 40, $"The key is too short: {generated.Key.Length}.");
         Assert.DoesNotContain('+', generated.Key);
         Assert.DoesNotContain('/', generated.Key);
         Assert.DoesNotContain('=', generated.Key);

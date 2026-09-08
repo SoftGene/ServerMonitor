@@ -1,4 +1,4 @@
-.history-page {
+﻿.history-page {
     max-width: 1200px;
     margin: 0 auto;
     padding: 36px 32px 48px;
@@ -80,7 +80,7 @@
     background: var(--surface-2);
 }
 
-/* Значение + статусная точка вместо цветной пилюли */
+/* A value plus a status dot, instead of a coloured pill */
 .badge {
     display: inline-flex;
     align-items: center;

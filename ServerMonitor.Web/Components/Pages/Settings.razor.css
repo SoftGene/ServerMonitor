@@ -1,4 +1,4 @@
-.settings-page {
+﻿.settings-page {
     max-width: 700px;
     margin: 0 auto;
     padding: 36px 32px 48px;
@@ -39,7 +39,7 @@
     border-bottom: none;
 }
 
-/* Нумерованные mono-заголовки секций через CSS-счётчики */
+/* Numbered monospace section headings, driven by CSS counters */
 .setting-section h2 {
     counter-increment: section;
     font-family: var(--font-mono);
@@ -122,7 +122,7 @@
     font-size: 13px;
 }
 
-/* Приборный тумблер: прямые углы, квадратный бегунок */
+/* Instrument-style toggle: square corners, square knob */
 .switch {
     position: relative;
     display: inline-block;
@@ -212,4 +212,67 @@
 .save-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+.account-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+}
+
+.account-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 14px;
+    background: var(--surface);
+}
+
+.account-name {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+}
+
+.account-tag {
+    margin-left: 8px;
+    padding: 1px 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-soft);
+}
+
+.link-danger {
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--status-crit);
+    cursor: pointer;
+}
+
+.link-danger:hover {
+    text-decoration: underline;
+}
+
+.account-add {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.threshold-input.wide {
+    flex: 1 1 150px;
+    width: auto;
+    text-align: left;
 }

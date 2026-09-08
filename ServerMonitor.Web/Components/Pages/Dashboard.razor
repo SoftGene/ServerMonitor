@@ -1,4 +1,5 @@
 ﻿@page "/servers/{PublicId:guid}"
+@attribute [Authorize]
 @using System.Globalization
 @using ServerMonitor.Web.Models
 @using ServerMonitor.Web.Services
@@ -221,8 +222,8 @@
         @if (isDeleting)
         {
             <div class="danger-confirm">
-                @* Подтверждение вводом имени: соразмерно ущербу — одним промахом мыши
-                   месяц истории удалить нельзя. *@
+                @* Confirmation by typing the name, proportionate to the damage: a month of
+                   history should not disappear to one stray click. *@
                 <label for="confirmName">Type <code>@server.Name</code> to confirm.</label>
                 <div class="confirm-row">
                     <input id="confirmName" class="confirm-input" autocomplete="off"
@@ -243,7 +244,7 @@
 </div>
 
 @code {
-    /// <summary>Машина, чей дашборд открыт. Приходит из адреса /servers/{guid}.</summary>
+    /// <summary>The machine whose dashboard is open. Comes from the /servers/{guid} address.</summary>
     [Parameter]
     public Guid PublicId { get; set; }
 
@@ -264,8 +265,8 @@
     private string confirmName = string.Empty;
     private string? deleteError;
 
-    // Не OnInitializedAsync: при переходе с одной машины на другую меняется только
-    // параметр маршрута, а сам компонент Blazor переиспользует — инициализация бы не повторилась.
+    // Not OnInitializedAsync: moving from one machine to another changes only the route
+    // parameter, and Blazor reuses the component — initialisation would not run again.
     protected override async Task OnParametersSetAsync()
     {
         if (loadedId == PublicId)
@@ -275,7 +276,7 @@
 
         loadedId = PublicId;
 
-        // Чужие показания на новой странице мелькнуть не должны, поэтому чистим состояние.
+        // Another machine's readings must not flash up on the new page, so the state is cleared.
         hasLoaded = false;
         server = null;
         status = null;
@@ -301,7 +302,7 @@
 
             if (server is null)
             {
-                // Машину удалили — показывать нечего, но это не ошибка связи.
+                // The machine was deleted — nothing to show, but this is not a connection error.
                 status = null;
                 history = new();
                 loadError = null;
@@ -358,8 +359,8 @@
 
     private async Task DeleteServerAsync()
     {
-        // Кнопка и так заблокирована, но проверку повторяем: состояние могло измениться
-        // между отрисовкой и щелчком.
+        // The button is disabled anyway, but the check is repeated: the state may have
+        // changed between the render and the click.
         if (server is null || confirmName != server.Name)
         {
             return;
@@ -396,7 +397,7 @@
         return $"avg {avg:F1}% · max {max:F1}%";
     }
 
-    // Точки для SVG-графиков (инвариантный формат — дробная точка обязательна в CSS/SVG)
+    // Points for the SVG charts. Invariant format: CSS and SVG require a dot as the separator.
     private string ChartPoints(Func<MetricHistoryItem, double> selector, double width = 100, double height = 32)
     {
         if (history.Count < 2) return "";

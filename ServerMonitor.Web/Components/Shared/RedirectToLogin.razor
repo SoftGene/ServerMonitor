@@ -1,0 +1,14 @@
+﻿@inject NavigationManager Nav
+
+@code {
+    /// <summary>
+    /// Sends a visitor who is not signed in to the login page, remembering where they were
+    /// headed so that signing in lands them there rather than on the home page.
+    /// </summary>
+    protected override void OnInitialized()
+    {
+        var returnUrl = "/" + Nav.ToBaseRelativePath(Nav.Uri);
+
+        Nav.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}", forceLoad: true);
+    }
+}

@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using ServerMonitor.Web.Models;
 
 namespace ServerMonitor.Web.Services;
@@ -12,7 +12,7 @@ public class MetricsApiClient
         _httpClient = httpClient;
     }
 
-    /// <summary>Список машин парка со свежими значениями — то, из чего рисуется главная страница.</summary>
+    /// <summary>The fleet with its latest values — what the home page is drawn from.</summary>
     public async Task<List<ServerSummary>> GetServersAsync(CancellationToken cancellationToken = default)
     {
         var servers = await _httpClient.GetFromJsonAsync<List<ServerSummary>>(
@@ -21,7 +21,7 @@ public class MetricsApiClient
         return servers ?? new List<ServerSummary>();
     }
 
-    /// <summary>Одна машина. null — такой машины нет (например, её удалили в другой вкладке).</summary>
+    /// <summary>A single machine. null means there is no such machine — deleted in another tab, say.</summary>
     public async Task<ServerSummary?> GetServerAsync(Guid serverId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.GetAsync($"api/servers/{serverId}", cancellationToken);
@@ -36,7 +36,7 @@ public class MetricsApiClient
         return await response.Content.ReadFromJsonAsync<ServerSummary>(cancellationToken);
     }
 
-    /// <summary>Удаляет машину вместе со всей её историей. Отменить нельзя.</summary>
+    /// <summary>Deletes a machine together with its entire history. This cannot be undone.</summary>
     public async Task<bool> DeleteServerAsync(Guid serverId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.DeleteAsync($"api/servers/{serverId}", cancellationToken);
@@ -45,8 +45,8 @@ public class MetricsApiClient
     }
 
     /// <summary>
-    /// Последний замер машины. Возвращает null, если замеров ещё нет: у только что
-    /// зарегистрированного агента это нормальное состояние, а не ошибка.
+    /// The machine's latest reading. Returns null when there are none yet: for an agent that
+    /// has only just registered this is a normal state rather than an error.
     /// </summary>
     public async Task<ServerStatus?> GetStatusAsync(Guid serverId, CancellationToken cancellationToken = default)
     {
@@ -108,8 +108,8 @@ public class MetricsApiClient
     }
 
     /// <summary>
-    /// Алерты. Без serverId — по всему парку: вопрос «где что-то сломалось» относится
-    /// ко всем машинам сразу.
+    /// Alerts. Without a serverId they cover the whole fleet: the question "where did
+    /// something break" is about every machine at once.
     /// </summary>
     public async Task<List<Alert>> GetAlertsAsync(
         int count = 50,

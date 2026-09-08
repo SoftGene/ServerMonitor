@@ -1,4 +1,4 @@
-@using ServerMonitor.Web.Components.Shared
+﻿@using ServerMonitor.Web.Components.Shared
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 @inject ILogger<TopNav> Logger
@@ -15,8 +15,9 @@
             <span class="brand-text">SERVER<span class="brand-accent">_ML</span></span>
         </div>
 
-        @* Меню зависит от того, где мы находимся: внутри машины разделы ведут по её
-           данным, снаружи — по общим. Так на графике нельзя перепутать, чья это машина. *@
+        @* The menu depends on where we are: inside a machine the sections lead through its
+           own data, outside they lead through the shared ones. That way a chart cannot be
+           mistaken for another host's. *@
         <nav class="nav-links" id="navPill">
             <span class="nav-indicator" id="navIndicator"></span>
 
@@ -49,6 +50,22 @@
         </nav>
 
         <div class="nav-right">
+            <AuthorizeView>
+                <Authorized>
+                    <span class="nav-user" title="Signed in as @context.User.Identity?.Name">
+                        @context.User.Identity?.Name
+                    </span>
+                    @* Sign-out is a plain form post rather than @onclick: the cookie is
+                       cleared by a response header, which an interactive component has
+                       no access to. *@
+                    <form method="post" action="/account/logout" class="logout-form">
+                        <AntiforgeryToken />
+                        <button type="submit" class="logout-btn" title="Sign out">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></svg>
+                        </button>
+                    </form>
+                </Authorized>
+            </AuthorizeView>
             <ThemeToggle />
         </div>
     </div>
@@ -57,7 +74,7 @@
 @code {
     private Guid? currentServerId;
 
-    /// <summary>Внутри машины алерты сужаются до неё, снаружи — весь парк.</summary>
+    /// <summary>Inside a machine the alerts narrow to it; outside, they cover the fleet.</summary>
     private string AlertsHref =>
         currentServerId is null ? "alerts" : $"servers/{currentServerId}/alerts";
 
@@ -73,9 +90,9 @@
     }
 
     /// <summary>
-    /// Достаёт идентификатор машины из адреса вида servers/{guid}/... Имя машины здесь
-    /// намеренно не показываем: за ним пришлось бы ходить в API на каждый переход,
-    /// а в заголовке страницы оно и так есть.
+    /// Pulls the machine identifier out of an address like servers/{guid}/... The machine
+    /// name is deliberately not shown here: fetching it would mean an API call on every
+    /// navigation, and the page heading already carries it.
     /// </summary>
     private Guid? ReadServerId()
     {
@@ -92,9 +109,9 @@
         return null;
     }
 
-    // Обработчик события обязан возвращать void, поэтому это единственный законный
-    // случай async void. Исключение отсюда некому поймать — ловим сами, иначе оно
-    // уйдёт в среду выполнения и может уронить процесс.
+    // An event handler has to return void, which makes this the one legitimate case for
+    // async void. There is nobody to catch an exception from here, so we catch it ourselves;
+    // otherwise it escapes to the runtime and can take the process down.
     private async void OnLocationChanged(object? sender, EventArgs e)
     {
         try
@@ -118,7 +135,7 @@
         }
         catch (JSDisconnectedException)
         {
-            // Соединение с браузером уже закрыто — обновлять нечего.
+            // The connection to the browser is already closed — nothing left to update.
         }
     }
 

@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using ServerMonitor.Domain.Entities;
 
 namespace ServerMonitor.Collection;
@@ -6,9 +6,9 @@ namespace ServerMonitor.Collection;
 public class MetricsCollector : IMetricsCollector
 {
     /// <summary>
-    /// Интервал между двумя замерами счётчиков процессора. Загрузку нельзя измерить
-    /// мгновенно: ядро хранит накопленные счётчики, а загрузка — разница между двумя
-    /// моментами, делённая на прошедшее время.
+    /// The gap between two readings of the CPU counters. Usage cannot be measured
+    /// instantaneously: the kernel keeps accumulated counters, and usage is the difference
+    /// between two moments divided by the time that passed.
     /// </summary>
     private static readonly TimeSpan CpuSampleInterval = TimeSpan.FromSeconds(1);
 
@@ -52,8 +52,8 @@ public class MetricsCollector : IMetricsCollector
 
         var (totalKb, availableKb) = ProcParser.ParseMemInfo(lines);
 
-        // MemAvailable, а не MemFree: свободную память ядро отдаёт под дисковый кэш,
-        // поэтому MemFree на живой системе всегда близок к нулю.
+        // MemAvailable rather than MemFree: the kernel hands free memory to the disk cache,
+        // so MemFree on a running system is always close to zero.
         snapshot.MemoryTotalMb = totalKb / 1024.0;
         snapshot.MemoryUsedMb = (totalKb - availableKb) / 1024.0;
     }
@@ -123,8 +123,8 @@ public class MetricsCollector : IMetricsCollector
     private static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
 
     /// <summary>
-    /// Системный аналог /proc/stat: суммарное время простоя, время ядра и время
-    /// пользовательских программ с момента загрузки. Время ядра уже включает простой.
+    /// The system equivalent of /proc/stat: total idle time, kernel time and user time since
+    /// boot. Kernel time already includes the idle time.
     /// </summary>
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -171,14 +171,14 @@ public class MetricsCollector : IMetricsCollector
                 $"GetSystemTimes failed with Win32 error {Marshal.GetLastWin32Error()}.");
         }
 
-        // kernelTime уже содержит время простоя, поэтому общее время — это kernel + user.
+        // kernelTime already contains the idle time, so the total is kernel + user.
         var idle = ToTicks(idleTime);
         var total = ToTicks(kernelTime) + ToTicks(userTime);
 
         return new CpuTimes { Idle = idle, Total = total };
     }
 
-    /// <summary>Склеивает две 32-битные половины FILETIME в одно 64-битное значение.</summary>
+    /// <summary>Joins the two 32-bit halves of a FILETIME into one 64-bit value.</summary>
     private static long ToTicks(FILETIME fileTime)
     {
         return (long)(((ulong)fileTime.dwHighDateTime << 32) | fileTime.dwLowDateTime);
@@ -189,7 +189,7 @@ public class MetricsCollector : IMetricsCollector
         snapshot.UptimeSeconds = Environment.TickCount64 / 1000.0;
     }
 
-    // ===== Диск (одинаково для обеих систем) =====
+    // ===== Disk (identical on both platforms) =====
 
     private static void CollectDiskMetrics(MetricSnapshot snapshot)
     {
@@ -211,8 +211,8 @@ public class MetricsCollector : IMetricsCollector
     }
 
     /// <summary>
-    /// Ищет раздел, на котором стоит система. Раньше здесь брался «первый готовый» диск —
-    /// на машине с несколькими томами это была лотерея.
+    /// Finds the volume the system is installed on. This used to take the "first ready" drive,
+    /// which on a machine with several volumes was a lottery.
     /// </summary>
     private static DriveInfo? FindSystemDrive()
     {

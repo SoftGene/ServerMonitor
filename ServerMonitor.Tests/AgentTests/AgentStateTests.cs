@@ -1,4 +1,4 @@
-using ServerMonitor.Agent;
+﻿using ServerMonitor.Agent;
 
 namespace ServerMonitor.Tests.AgentTests;
 
@@ -10,7 +10,7 @@ public class AgentStateTests
     [Fact]
     public async Task LoadAsync_ReturnsNullWhenFileIsMissing()
     {
-        // Первый запуск: файла ещё нет, и это не ошибка — это сигнал «пора регистрироваться».
+        // First run: the file is not there yet, and that is not an error — it is the signal to register.
         Assert.Null(await AgentState.LoadAsync(TempPath(), CancellationToken.None));
     }
 

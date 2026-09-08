@@ -1,4 +1,4 @@
-.dashboard {
+﻿.dashboard {
     padding: 36px 32px 48px;
     max-width: 1200px;
     margin: 0 auto;
@@ -82,7 +82,7 @@
     to { transform: rotate(360deg); }
 }
 
-/* Панель-стойка: ячейки разделены 1px-линиями через gap на фоне границы */
+/* Instrument panel: cells separated by 1px lines, made with gap over a border-coloured background */
 .metric-panel {
     position: relative;
     display: grid;
@@ -165,7 +165,7 @@
     color: var(--accent-contrast);
 }
 
-/* ===== Осциллограф: три канала ===== */
+/* ===== Oscilloscope: three channels ===== */
 
 .scope-stack {
     display: flex;
@@ -312,7 +312,7 @@
     color: var(--text);
 }
 
-/* ===== Терминальный курсор ===== */
+/* ===== Terminal cursor ===== */
 
 .term-cursor {
     display: inline-block;
@@ -328,7 +328,7 @@
     to { visibility: hidden; }
 }
 
-/* ===== Wireframe-куб ===== */
+/* ===== Wireframe cube ===== */
 
 .cube-wrap {
     width: 26px;
@@ -375,7 +375,7 @@
     .live-dot { animation: none; }
 }
 
-/* Хлебная крошка: имя машины в заголовке, возврат в парк — над ним. */
+/* Breadcrumb: the machine name in the heading, the way back to the fleet above it. */
 .back-link {
     display: inline-block;
     margin-bottom: 6px;

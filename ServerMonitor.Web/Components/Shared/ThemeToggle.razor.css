@@ -1,4 +1,4 @@
-.theme-switch {
+﻿.theme-switch {
     border: none;
     background: none;
     padding: 0;
@@ -23,7 +23,7 @@
     border-color: var(--text-soft);
 }
 
-/* Декоративные слои старого тумблера скрыты — разметка не меняется */
+/* The decorative layers of the old toggle are hidden; the markup stays as it was */
 .clouds,
 .stars,
 .sun-rays,
@@ -31,7 +31,7 @@
     display: none;
 }
 
-/* Квадратный бегунок: янтарный «день» / фосфорный «ночь» */
+/* Square knob: amber for day, phosphor for night */
 .switch-thumb {
     position: absolute;
     top: 3px;

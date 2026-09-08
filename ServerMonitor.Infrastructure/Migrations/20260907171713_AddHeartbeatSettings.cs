@@ -15,8 +15,8 @@ namespace ServerMonitor.Infrastructure.Migrations
                 table: "AppSettings",
                 type: "boolean",
                 nullable: false,
-                // Умолчание колонки, а не CLR-ноль: строка настроек может быть не только
-                // засеянная, и попасть в неё должно осмысленное значение.
+                // A real column default rather than the CLR zero: the settings row is not
+                // necessarily the seeded one, and it deserves a meaningful value.
                 defaultValue: true);
 
             migrationBuilder.AddColumn<int>(

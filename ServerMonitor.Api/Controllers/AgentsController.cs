@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServerMonitor.Api.Dtos;
 using ServerMonitor.Domain.Entities;
@@ -33,7 +33,7 @@ public class AgentsController : ControllerBase
     {
         var expectedToken = _configuration["Agents:EnrollmentToken"];
 
-        // Токен не настроен — регистрация выключена. Принимать кого угодно молча нельзя.
+        // No token configured means registration is off. Silently accepting anyone is not an option.
         if (string.IsNullOrWhiteSpace(expectedToken))
         {
             _logger.LogError("Agent registration is disabled: Agents:EnrollmentToken is not configured.");
@@ -71,10 +71,10 @@ public class AgentsController : ControllerBase
     }
 
     /// <summary>
-    /// Обычно регистрация создаёт новую запись. Единственное исключение — запись без ключа,
-    /// которую оставила миграция: к ней привязана вся история, собранная до появления агентов.
-    /// Если бы первый агент завёл рядом вторую запись, история разорвалась бы надвое.
-    /// Ситуация возможна только один раз: получив ключ, запись перестаёт быть кандидатом.
+    /// Registration normally creates a new row. The one exception is the keyless row left by
+    /// the migration: all the history collected before agents existed hangs off it. Had the
+    /// first agent created a second row beside it, that history would have been torn in two.
+    /// This can happen only once — once the row has a key it is no longer a candidate.
     /// </summary>
     private async Task<Server> AdoptOrCreateAsync(
         AgentRegistrationRequest request,

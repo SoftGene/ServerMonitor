@@ -1,4 +1,4 @@
-using ServerMonitor.Domain.Entities;
+﻿using ServerMonitor.Domain.Entities;
 
 namespace ServerMonitor.Tests.Domain;
 
@@ -9,7 +9,7 @@ public class ServerHealthTests
     [Fact]
     public void NeverSeen_IsOffline()
     {
-        // Сервер зарегистрировался, но не прислал ни одного замера.
+        // The server registered but has not sent a single reading.
         Assert.Equal(ServerHealth.Offline, ServerHealthCalculator.FromLastSeen(null, Now));
     }
 
@@ -29,7 +29,7 @@ public class ServerHealthTests
     [Fact]
     public void ExactBoundaries_StayInTheHealthierState()
     {
-        // Сравнение строгое (>), поэтому ровно на границе состояние ещё не меняется.
+        // The comparison is strict (>), so exactly on the boundary the state does not change yet.
         Assert.Equal(
             ServerHealth.Online,
             ServerHealthCalculator.FromLastSeen(Now - ServerHealthCalculator.StaleAfter, Now));
@@ -42,8 +42,8 @@ public class ServerHealthTests
     [Fact]
     public void ClockSkew_DoesNotBreakTheCalculation()
     {
-        // Метка из будущего (часы агента убежали вперёд) — возраст отрицательный,
-        // сервер считается живым, а не упавшим.
+        // A timestamp from the future — the agent's clock ran ahead — makes the age negative,
+        // and the server counts as alive rather than down.
         Assert.Equal(ServerHealth.Online, ServerHealthCalculator.FromLastSeen(Now.AddMinutes(10), Now));
     }
 
@@ -52,10 +52,10 @@ public class ServerHealthTests
     {
         var lastSeen = Now.AddSeconds(-90);
 
-        // По умолчанию 90 секунд молчания — это Stale.
+        // By default 90 seconds of silence is Stale.
         Assert.Equal(ServerHealth.Stale, ServerHealthCalculator.FromLastSeen(lastSeen, Now));
 
-        // С более строгими порогами тот же момент времени означает уже Offline.
+        // With stricter thresholds the same instant already means Offline.
         Assert.Equal(
             ServerHealth.Offline,
             ServerHealthCalculator.FromLastSeen(
@@ -70,7 +70,7 @@ public class ServerHealthTests
     {
         var lastSeen = Now.AddSeconds(-30);
 
-        // Порог Stale поднят, порог Offline остался по умолчанию — 30 секунд ещё Online.
+        // The Stale threshold is raised and Offline keeps its default, so 30 seconds is still Online.
         Assert.Equal(
             ServerHealth.Online,
             ServerHealthCalculator.FromLastSeen(lastSeen, Now, staleAfter: TimeSpan.FromMinutes(2)));

@@ -1,0 +1,70 @@
+﻿@page "/setup"
+@using Microsoft.AspNetCore.Components.Endpoints
+@using ServerMonitor.Web.Services
+@attribute [ExcludeFromInteractiveRouting]
+@layout EmptyLayout
+@inject AuthApiClient AuthClient
+@inject NavigationManager Nav
+
+<PageTitle>First run · ServerML</PageTitle>
+
+<div class="auth-page">
+    <div class="auth-card">
+        <div class="auth-brand">
+            <span class="brand-logo">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 12h4l2-7 4 14 2-7h6" />
+                </svg>
+            </span>
+            <span class="brand-text">SERVER<span class="brand-accent">_ML</span></span>
+        </div>
+
+        <h1>First run</h1>
+        <p class="auth-lead">
+            No accounts exist yet. Create the one you will sign in with — registration closes
+            afterwards, and further accounts are added from Settings.
+        </p>
+
+        @if (Error is not null)
+        {
+            <div class="auth-error">@Error</div>
+        }
+
+        <form method="post" action="/account/setup">
+            <AntiforgeryToken />
+
+            <label for="username">Username</label>
+            <input id="username" name="username" class="auth-input" autocomplete="username" autofocus required />
+
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" class="auth-input"
+                   autocomplete="new-password" minlength="8" required />
+
+            <label for="confirm">Repeat password</label>
+            <input id="confirm" name="confirm" type="password" class="auth-input"
+                   autocomplete="new-password" minlength="8" required />
+
+            <p class="auth-hint">
+                At least 8 characters. If you lose it, reset it on the server with
+                <code>dotnet run --project ServerMonitor.Api -- reset-password &lt;username&gt;</code>
+            </p>
+
+            <button type="submit" class="auth-btn">Create account</button>
+        </form>
+    </div>
+</div>
+
+@code {
+    private string? Error { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Error = System.Web.HttpUtility.ParseQueryString(new Uri(Nav.Uri).Query)["error"];
+
+        // Setup is already done — a second account must not be created this way.
+        if (await AuthClient.HasUsersAsync())
+        {
+            Nav.NavigateTo("/login");
+        }
+    }
+}

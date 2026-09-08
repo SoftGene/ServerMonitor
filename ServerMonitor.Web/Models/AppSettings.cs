@@ -9,14 +9,14 @@ public class AppSettings
     public double DiskThreshold { get; set; }
     public bool AlertsEnabled { get; set; }
 
-    /// <summary>Сколько секунд молчания считать пропажей машины.</summary>
+    /// <summary>How many seconds of silence count as a machine having gone missing.</summary>
     public int OfflineAfterSeconds { get; set; }
 
     public bool HeartbeatAlertsEnabled { get; set; }
 
     /// <summary>
-    /// Тот же порог в минутах — для формы. Человеку удобнее минуты, хранению нужны секунды,
-    /// поэтому перевод живёт в одном месте.
+    /// The same threshold in minutes, for the form. Minutes suit a person and seconds suit
+    /// storage, so the conversion lives in one place.
     /// </summary>
     [JsonIgnore]
     public int OfflineAfterMinutes

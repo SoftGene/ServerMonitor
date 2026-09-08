@@ -1,11 +1,11 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using ServerMonitor.Collection;
 
 namespace ServerMonitor.Tests.Monitoring;
 
 /// <summary>
-/// Проверка реального сбора на текущей машине. Это уже не юнит-тест: он обращается к
-/// операционной системе, поэтому проверяет не точные числа, а правдоподобность результата.
+/// Checks real collection on the current machine. This is no longer a unit test: it talks to
+/// the operating system, so it asserts that the result is plausible rather than exact.
 /// </summary>
 public class MetricsCollectorTests
 {
@@ -18,7 +18,7 @@ public class MetricsCollectorTests
     {
         if (!IsSupportedPlatform)
         {
-            return; // на других платформах сбор не поддерживается by design
+            return; // collection is not supported on other platforms by design
         }
 
         var collector = new MetricsCollector();
@@ -27,13 +27,13 @@ public class MetricsCollectorTests
 
         Assert.InRange(snapshot.CpuUsagePercent, 0, 100);
 
-        Assert.True(snapshot.MemoryTotalMb > 0, "Общий объём памяти должен быть больше нуля.");
+        Assert.True(snapshot.MemoryTotalMb > 0, "Total memory must be greater than zero.");
         Assert.InRange(snapshot.MemoryUsedMb, 0, snapshot.MemoryTotalMb);
 
-        Assert.True(snapshot.DiskTotalGb > 0, "Объём системного диска должен быть больше нуля.");
+        Assert.True(snapshot.DiskTotalGb > 0, "The system drive size must be greater than zero.");
         Assert.InRange(snapshot.DiskUsedGb, 0, snapshot.DiskTotalGb);
 
-        Assert.True(snapshot.UptimeSeconds > 0, "Время работы системы должно быть больше нуля.");
+        Assert.True(snapshot.UptimeSeconds > 0, "System uptime must be greater than zero.");
 
         Assert.InRange(snapshot.TimestampUtc, DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow.AddMinutes(1));
     }
@@ -52,10 +52,10 @@ public class MetricsCollectorTests
         await collector.CollectAsync(CancellationToken.None);
         var elapsed = DateTime.UtcNow - startedAt;
 
-        // Загрузку процессора нельзя измерить мгновенно — нужен интервал между замерами
-        // счётчиков. Именно из-за этой секунды реальный шаг сбора ≈ 6 секунд, а не 5.
+        // CPU usage cannot be measured instantaneously — it needs a gap between two counter
+        // readings. That second is why the real collection step is about 6 seconds, not 5.
         Assert.True(
             elapsed >= TimeSpan.FromMilliseconds(900),
-            $"Ожидалась пауза около секунды на замер CPU, фактически {elapsed.TotalMilliseconds:F0} мс.");
+            $"Expected about a second for the CPU sample, got {elapsed.TotalMilliseconds:F0} ms.");
     }
 }

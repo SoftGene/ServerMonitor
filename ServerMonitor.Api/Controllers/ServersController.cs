@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ServerMonitor.Api.Auth;
 using ServerMonitor.Api.Dtos;
 using ServerMonitor.Domain.Entities;
 using ServerMonitor.Infrastructure.Data;
@@ -8,9 +9,10 @@ namespace ServerMonitor.Api.Controllers;
 
 [ApiController]
 [Route("api/servers")]
+[RequireServiceKey]
 public class ServersController : ControllerBase
 {
-    /// <summary>Сколько последних замеров отдавать на спарклайн в строке парка.</summary>
+    /// <summary>How many recent readings to return for the sparkline in a fleet row.</summary>
     private const int TrendPoints = 24;
 
     private readonly AppDbContext _dbContext;
@@ -42,7 +44,7 @@ public class ServersController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Одна машина — нужна детальной странице, чтобы показать имя и состояние в шапке.</summary>
+    /// <summary>A single machine — the detail page needs it for the name and health in its header.</summary>
     [HttpGet("{publicId:guid}")]
     public async Task<ActionResult<ServerSummaryDto>> GetServer(Guid publicId, CancellationToken cancellationToken)
     {
@@ -61,8 +63,9 @@ public class ServersController : ControllerBase
     }
 
     /// <summary>
-    /// Порог «машина пропала» из настроек. Экран парка и оповещения обязаны судить по одной
-    /// границе: разойдись они, интерфейс показывал бы «всё хорошо» там, где уже ушёл алерт.
+    /// The "machine is missing" threshold from settings. The fleet screen and the alerting
+    /// have to judge by the same boundary: were they to diverge, the interface would show a
+    /// machine as healthy after the alert had already gone out.
     /// </summary>
     private async Task<TimeSpan> ReadOfflineThresholdAsync(CancellationToken cancellationToken)
     {
@@ -82,9 +85,9 @@ public class ServersController : ControllerBase
         TimeSpan offlineAfter,
         CancellationToken cancellationToken)
     {
-        // По отдельному запросу на сервер. Для парка из десятка машин это дёшево,
-        // а вытащить последние N замеров сразу для всех одним запросом можно только
-        // оконной функцией, то есть сырым SQL. Если парк вырастет — менять здесь.
+        // One query per server. For a fleet of a dozen machines that is cheap, and pulling
+        // the last N readings for all of them at once would take a window function, which
+        // means raw SQL. If the fleet grows, this is the place to change.
         var recent = await _dbContext.MetricSnapshots
             .AsNoTracking()
             .Where(m => m.ServerId == server.Id)
@@ -92,8 +95,8 @@ public class ServersController : ControllerBase
             .Take(TrendPoints)
             .ToListAsync(cancellationToken);
 
-        // Замеры уже в памяти, поэтому вычисляемые свойства работают:
-        // в проекции на стороне базы они бы не перевелись в SQL.
+        // The readings are already in memory, so the computed properties work here; in a
+        // projection on the database side they would not translate to SQL.
         var latest = recent.FirstOrDefault();
 
         return new ServerSummaryDto
@@ -109,7 +112,7 @@ public class ServersController : ControllerBase
             CpuUsagePercent = latest?.CpuUsagePercent,
             MemoryUsagePercent = latest?.MemoryUsagePercent,
             DiskUsagePercent = latest?.DiskUsagePercent,
-            // Запрос отдал свежие сверху, а графику нужно слева направо по времени.
+            // The query returned newest first, but the chart needs left to right in time.
             CpuTrend = recent
                 .OrderBy(m => m.TimestampUtc)
                 .Select(m => m.CpuUsagePercent)
@@ -128,8 +131,9 @@ public class ServersController : ControllerBase
             return NotFound();
         }
 
-        // Каскад, описанный в модели, снесёт вместе с сервером все его замеры и алерты.
-        // Операция необратимая, поэтому в интерфейсе она под подтверждением с вводом имени.
+        // The cascade declared in the model takes every reading and alert down with the
+        // server. The operation is irreversible, which is why the UI puts it behind typing
+        // the machine's name.
         _dbContext.Servers.Remove(server);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
