@@ -1,4 +1,4 @@
-@using ServerMonitor.Web.Components.Shared
+﻿@using ServerMonitor.Web.Components.Shared
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 @inject ILogger<TopNav> Logger
@@ -49,6 +49,21 @@
         </nav>
 
         <div class="nav-right">
+            <AuthorizeView>
+                <Authorized>
+                    <span class="nav-user" title="Signed in as @context.User.Identity?.Name">
+                        @context.User.Identity?.Name
+                    </span>
+                    @* Выход — обычная отправка формы, а не @onclick: cookie удаляется
+                       заголовком ответа, которого у интерактивного компонента нет. *@
+                    <form method="post" action="/account/logout" class="logout-form">
+                        <AntiforgeryToken />
+                        <button type="submit" class="logout-btn" title="Sign out">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></svg>
+                        </button>
+                    </form>
+                </Authorized>
+            </AuthorizeView>
             <ThemeToggle />
         </div>
     </div>

@@ -1,5 +1,6 @@
 ﻿@page "/alerts"
 @page "/servers/{PublicId:guid}/alerts"
+@attribute [Authorize]
 @using ServerMonitor.Web.Models
 @using ServerMonitor.Web.Services
 @inject MetricsApiClient ApiClient

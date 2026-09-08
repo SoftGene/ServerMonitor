@@ -1,0 +1,14 @@
+@inject NavigationManager Nav
+
+@code {
+    /// <summary>
+    /// Уводит незалогиненного на страницу входа, запоминая, куда он шёл, — чтобы после входа
+    /// попасть именно туда, а не на главную.
+    /// </summary>
+    protected override void OnInitialized()
+    {
+        var returnUrl = "/" + Nav.ToBaseRelativePath(Nav.Uri);
+
+        Nav.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}", forceLoad: true);
+    }
+}
