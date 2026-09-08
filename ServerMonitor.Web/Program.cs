@@ -2,7 +2,6 @@
 using ServerMonitor.Web.Components;
 using ServerMonitor.Web.Endpoints;
 using ServerMonitor.Web.Services;
-using Radzen;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -55,8 +54,6 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
 builder.Services.AddAuthorization();
 builder.Services.AddCascadingAuthenticationState();
-
-builder.Services.AddRadzenComponents();
 
 var app = builder.Build();
 

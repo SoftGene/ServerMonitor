@@ -76,7 +76,9 @@ Telegram client.
 | `ServerMonitor.Tests` | xUnit tests. |
 
 **Stack:** .NET 10 · ASP.NET Core · Blazor Server · EF Core 10 · PostgreSQL 17 · xUnit ·
-Telegram.Bot
+Telegram.Bot · Docker
+
+No UI framework: the interface is hand-written CSS, and the charts are inline SVG.
 
 ---
 
