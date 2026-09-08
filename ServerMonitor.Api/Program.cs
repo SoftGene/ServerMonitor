@@ -57,6 +57,21 @@ builder.Services.AddHostedService<TelegramBotService>();
 
 var app = builder.Build();
 
+// Apply migrations at startup. Without this the promise of a single `docker compose up` breaks:
+// the API would come up against an empty database.
+//
+// This is right for a single instance and wrong for several: on a simultaneous start they would
+// race each other. A multi-instance deployment runs migrations as a separate step instead.
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var startupLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+
+    startupLogger.LogInformation("Applying database migrations...");
+    await dbContext.Database.MigrateAsync();
+    startupLogger.LogInformation("Database is up to date.");
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -67,6 +82,15 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
+
+// An external watcher needs somewhere to poll: the system cannot report its own death
+// (see guide chapter 11). Deliberately unauthenticated — a health check that demands a secret
+// is one an uptime service cannot perform — and deliberately terse, because what exactly broke
+// is nobody else's business.
+app.MapGet("/healthz", async (AppDbContext dbContext) =>
+    await dbContext.Database.CanConnectAsync()
+        ? Results.Text("healthy")
+        : Results.Text("unhealthy", statusCode: StatusCodes.Status503ServiceUnavailable));
 
 app.MapControllers();
 

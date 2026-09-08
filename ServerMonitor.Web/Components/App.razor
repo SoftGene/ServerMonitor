@@ -1,18 +1,18 @@
 ﻿<!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <ResourcePreloader />
-    <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["ServerMonitor.Web.styles.css"]" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <ImportMap />
+    <script src="js/theme.js"></script>
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet @rendermode="@RenderModeForPage" />
 </head>
@@ -21,7 +21,6 @@
     <Routes @rendermode="@RenderModeForPage" />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
-    <script src="js/theme.js"></script>
     <script src="js/navpill.js"></script>
     <script src="js/liveflash.js"></script>
 </body>

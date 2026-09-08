@@ -11,6 +11,58 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # The API waits for this rather than for the container merely existing: Postgres accepts
+    # connections a few seconds after the process starts, and without the check the API would
+    # come up first and fail its migrations.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U monitor -d servermonitor"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: ServerMonitor.Api/Dockerfile
+    container_name: servermonitor-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=servermonitor;Username=monitor;Password=${POSTGRES_PASSWORD}"
+      Agents__EnrollmentToken: ${ENROLLMENT_TOKEN:?set ENROLLMENT_TOKEN in .env}
+      Api__ServiceKey: ${SERVICE_KEY:?set SERVICE_KEY in .env}
+      # Optional. Leave empty and alerting still records every event in the journal.
+      Telegram__BotToken: ${TELEGRAM_BOT_TOKEN:-}
+      Telegram__ChatId: ${TELEGRAM_CHAT_ID:-}
+    ports:
+      - "7212:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  web:
+    build:
+      context: .
+      dockerfile: ServerMonitor.Web/Dockerfile
+    container_name: servermonitor-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      # Inside the compose network services reach each other by name, over plain HTTP.
+      ApiSettings__BaseUrl: "http://api:8080"
+      ApiSettings__ServiceKey: ${SERVICE_KEY:?set SERVICE_KEY in .env}
+    ports:
+      - "5298:8080"
+
+# The agent is deliberately not here: in a container it would measure the container rather than
+# the host. Install it on the machine you want to watch — see the README.
 
 volumes:
   postgres_data:

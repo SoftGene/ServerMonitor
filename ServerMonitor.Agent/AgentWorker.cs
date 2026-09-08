@@ -91,7 +91,9 @@ public class AgentWorker : BackgroundService
 
             try
             {
-                await Task.Delay(retryDelay, stoppingToken);
+                // Jitter the wait itself rather than the base: feeding a jittered value back
+                // into the doubling would let the backoff drift away from its intended curve.
+                await Task.Delay(sent ? retryDelay : WithJitter(retryDelay), stoppingToken);
             }
             catch (TaskCanceledException)
             {
@@ -103,6 +105,22 @@ public class AgentWorker : BackgroundService
     }
 
     private static TimeSpan Min(TimeSpan left, TimeSpan right) => left < right ? left : right;
+
+    /// <summary>
+    /// Spreads the retry delay by up to 20% either way.
+    /// </summary>
+    /// <remarks>
+    /// Without it, agents that lost the connection at the same moment retry at the same moment
+    /// too, and a server coming back up is met by the whole fleet at once — the effect that
+    /// keeps it from coming back. Randomising the delay turns a synchronised volley into a
+    /// spread of arrivals.
+    /// </remarks>
+    private static TimeSpan WithJitter(TimeSpan delay)
+    {
+        var factor = 0.8 + Random.Shared.NextDouble() * 0.4;
+
+        return TimeSpan.FromMilliseconds(delay.TotalMilliseconds * factor);
+    }
 
     /// <summary>
     /// Returns the saved state, or on the first run registers with the shared token and

@@ -8,8 +8,4 @@
     <UserSecretsId>d1605c4a-7333-43b6-8554-b1bd196a4ddf</UserSecretsId>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Radzen.Blazor" Version="11.2.5" />
-  </ItemGroup>
-
 </Project>
