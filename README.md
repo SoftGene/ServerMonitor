@@ -25,6 +25,9 @@ Built as a learning project, then taken far enough to actually run on my own ser
 - **Notices when a machine goes quiet.** A configurable silence threshold turns into an alert
   when an agent stops reporting, and another when it comes back. Rule checking is independent
   of delivery, so events are recorded even with no Telegram configured.
+- **Requires a sign-in.** The UI is behind a username and password stored as a PBKDF2 hash, and
+  the API answers nothing but agent ingest without a service key. A forgotten password is reset
+  from the server with a console command.
 - **Runs on Linux and Windows.** Readings come from `/proc` on Linux and from Win32 API calls
   through P/Invoke on Windows.
 
@@ -206,10 +209,9 @@ that have since been fixed.
 It runs, it keeps history, and it has been watching a real machine for weeks. It is not
 production software yet, and the gaps are deliberate rather than unknown:
 
-- **No authentication on read endpoints.** Anyone who can reach the API can read metrics.
-  Ingest and registration are the only protected routes.
-- **The enrollment token never expires** and agent keys cannot be rotated — removing a machine
-  is the only way to revoke access.
+- **The enrollment token never expires**, agent keys cannot be rotated, and neither can the
+  service key without editing both configurations.
+- **Accounts have no roles**, and deleting one does not end a session that is already open.
 - **Data is kept forever.** A reading every five seconds adds up; there is no retention policy.
 - **The agent's buffer is in memory**, so a restart during an outage loses what it held.
 - **Nothing watches the monitor itself.** If the central API dies, no alert goes out — a
