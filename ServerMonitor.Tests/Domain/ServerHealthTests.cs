@@ -46,4 +46,33 @@ public class ServerHealthTests
         // сервер считается живым, а не упавшим.
         Assert.Equal(ServerHealth.Online, ServerHealthCalculator.FromLastSeen(Now.AddMinutes(10), Now));
     }
+
+    [Fact]
+    public void ExplicitThresholds_OverrideTheDefaults()
+    {
+        var lastSeen = Now.AddSeconds(-90);
+
+        // По умолчанию 90 секунд молчания — это Stale.
+        Assert.Equal(ServerHealth.Stale, ServerHealthCalculator.FromLastSeen(lastSeen, Now));
+
+        // С более строгими порогами тот же момент времени означает уже Offline.
+        Assert.Equal(
+            ServerHealth.Offline,
+            ServerHealthCalculator.FromLastSeen(
+                lastSeen,
+                Now,
+                staleAfter: TimeSpan.FromSeconds(15),
+                offlineAfter: TimeSpan.FromSeconds(60)));
+    }
+
+    [Fact]
+    public void OnlyOneThresholdCanBeOverridden()
+    {
+        var lastSeen = Now.AddSeconds(-30);
+
+        // Порог Stale поднят, порог Offline остался по умолчанию — 30 секунд ещё Online.
+        Assert.Equal(
+            ServerHealth.Online,
+            ServerHealthCalculator.FromLastSeen(lastSeen, Now, staleAfter: TimeSpan.FromMinutes(2)));
+    }
 }

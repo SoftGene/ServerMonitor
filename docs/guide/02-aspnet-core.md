@@ -502,7 +502,7 @@ return Ok(dto);
 ```
 
 (`MemoryUsagePercent` у сущности — вычисляемое свойство: формула переехала в
-[`MetricSnapshot`](../../SeverMonitor.Domain/Entities/MetricSnapshot.cs), чтобы не
+[`MetricSnapshot`](../../ServerMonitor.Domain/Entities/MetricSnapshot.cs), чтобы не
 дублироваться в контроллере и в боте. Подробности — в [главе 09](09-fixing-the-defects.md).)
 
 Четыре причины, почему второй вариант правильный:

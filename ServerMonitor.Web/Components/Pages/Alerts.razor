@@ -15,7 +15,7 @@
             }
             <h1>Alerts</h1>
             <p class="page-sub">
-                @(PublicId is null ? "Threshold events across the whole fleet" : "Threshold events on this machine")
+                @(PublicId is null ? "Alert history across the whole fleet" : "Alert history for this machine")
             </p>
         </div>
         <button class="refresh-btn @(isRefreshing ? "spinning" : "")" @onclick="Refresh" title="Refresh">
@@ -36,7 +36,7 @@
         <div class="empty-state">
             <div class="empty-icon">OK</div>
             <h3>No alerts yet</h3>
-            <p>Everything is running smoothly. Alerts will appear here when thresholds are exceeded.</p>
+            <p>Everything is running smoothly. Events appear here when a threshold is crossed or a machine stops reporting.</p>
         </div>
     }
     else
@@ -47,7 +47,12 @@
             {
                 <div class="alert-item @(alert.AlertType == "Triggered" ? "triggered" : "recovered")">
                     <div class="alert-icon">
-                        @if (alert.AlertType == "Triggered")
+                        @if (alert.MetricType == "Availability")
+                        {
+                            @* Пропажа машины — не превышение порога, и иконка обязана это показывать. *@
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6" /><path d="M18.4 6.6a9 9 0 11-12.8 0" /></svg>
+                        }
+                        else if (alert.AlertType == "Triggered")
                         {
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><path d="M12 9v4M12 17h.01" /></svg>
                         }
@@ -64,10 +69,10 @@
                                 <a class="alert-server" href="@($"servers/{alert.ServerPublicId}")">@alert.ServerName</a>
                                 <span class="alert-sep">·</span>
                             }
-                            @alert.MetricType @(alert.AlertType == "Triggered" ? "exceeded threshold" : "recovered")
+                            @Title(alert)
                         </div>
                         <div class="alert-detail">
-                            Value: <strong>@alert.Value%</strong> · Threshold: @alert.Threshold%
+                            @Detail(alert)
                         </div>
                     </div>
                     <div class="alert-time">
@@ -124,6 +129,27 @@
             loadError = ex.Message;
         }
     }
+
+    /// <summary>
+    /// Событие доступности читается иначе, чем превышение порога: «CPU exceeded threshold»
+    /// и «machine stopped reporting» — разные по смыслу вещи, и одинаковая формулировка
+    /// вводила бы в заблуждение.
+    /// </summary>
+    private static string Title(Alert alert) => alert.MetricType switch
+    {
+        "Availability" => alert.AlertType == "Triggered"
+            ? "stopped reporting"
+            : "is reporting again",
+        _ => $"{alert.MetricType} {(alert.AlertType == "Triggered" ? "exceeded threshold" : "recovered")}"
+    };
+
+    private static string Detail(Alert alert) => alert.MetricType switch
+    {
+        "Availability" => alert.AlertType == "Triggered"
+            ? $"Silent for {alert.Value:0.#} min · threshold {alert.Threshold:0.#} min"
+            : $"Back after {alert.Value:0.#} min of silence",
+        _ => $"Value: {alert.Value}% · Threshold: {alert.Threshold}%"
+    };
 
     private async Task Refresh()
     {

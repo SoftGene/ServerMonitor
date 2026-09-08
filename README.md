@@ -22,6 +22,9 @@ Built as a learning project, then taken far enough to actually run on my own ser
 - **Alerts on thresholds.** CPU, memory and disk have configurable limits; alerting fires once
   on the way up and once on the way back down, and needs several consecutive breaches so a
   single spike stays quiet.
+- **Notices when a machine goes quiet.** A configurable silence threshold turns into an alert
+  when an agent stops reporting, and another when it comes back. Rule checking is independent
+  of delivery, so events are recorded even with no Telegram configured.
 - **Runs on Linux and Windows.** Readings come from `/proc` on Linux and from Win32 API calls
   through P/Invoke on Windows.
 
@@ -59,7 +62,7 @@ Telegram client.
 
 | Project | Role |
 |---------|------|
-| `SeverMonitor.Domain` | Entities and domain rules. No dependencies at all. |
+| `ServerMonitor.Domain` | Entities and domain rules. No dependencies at all. |
 | `ServerMonitor.Collection` | Reading metrics off a machine. |
 | `ServerMonitor.Agent` | The program installed on each watched machine. |
 | `ServerMonitor.Infrastructure` | EF Core, migrations, API keys, Telegram. |
@@ -205,22 +208,27 @@ production software yet, and the gaps are deliberate rather than unknown:
 
 - **No authentication on read endpoints.** Anyone who can reach the API can read metrics.
   Ingest and registration are the only protected routes.
-- **No detection of a machine going away.** The UI shows a stale machine, but nothing notifies
-  you about it. That is the next stage.
-- **Alerting is tied to Telegram.** Threshold checking runs inside the bot service, so with no
-  bot configured it does not run at all.
 - **The enrollment token never expires** and agent keys cannot be rotated — removing a machine
   is the only way to revoke access.
 - **Data is kept forever.** A reading every five seconds adds up; there is no retention policy.
 - **The agent's buffer is in memory**, so a restart during an outage loses what it held.
+- **Nothing watches the monitor itself.** If the central API dies, no alert goes out — a
+  system cannot report its own death. That needs an external check against `/healthz`, which
+  is part of the packaging stage.
+- **One offline threshold for the whole fleet**, and alerts have no severity levels.
 
-Roadmap, in order: heartbeat alerts → authentication → packaging (Docker images, install
-script, `/healthz`) → retention.
+Roadmap, in order: authentication → packaging (Docker images, install script, `/healthz`) →
+retention.
 
 ---
 
 ## A note on the name
 
-The repository started out as `SeverMonitor` — a typo. The project file has been renamed, the
-folder and solution file have not, because renaming those touches paths in several places and
-deserves its own commit. It is a small, honest piece of history.
+The repository started out as `SeverMonitor` — a typo, missing an `r`. It has been corrected
+in stages, because renaming a project folder touches paths in every `.csproj` that references
+it as well as the solution file, and that deserved its own commit rather than riding along
+with a feature.
+
+A detail worth keeping from it: a project's file name and its folder name are not required to
+match, so the build ran happily with the mismatch for a month. A compiler will never point out
+this kind of mistake.

@@ -52,11 +52,37 @@
             </div>
 
             <div class="setting-section">
+                <h2>Availability</h2>
+                <p class="section-hint">Notify when a machine stops reporting</p>
+
+                <div class="setting-row">
+                    <div>
+                        <label>Report a machine as missing after</label>
+                        <p class="row-hint">The fleet screen uses the same threshold</p>
+                    </div>
+                    <div class="input-wrap">
+                        <input type="number" min="1" max="1440" @bind="settings.OfflineAfterMinutes" class="threshold-input" />
+                        <span class="unit">min</span>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div>
+                        <label>Enable availability alerts</label>
+                        <p class="row-hint">Threshold alerts stay on independently</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" @bind="settings.HeartbeatAlertsEnabled" />
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="setting-section">
                 <h2>Notifications</h2>
                 <div class="setting-row">
                     <div>
                         <label>Enable alerts</label>
-                        <p class="row-hint">Turn Telegram alerts on or off</p>
+                        <p class="row-hint">Master switch for every rule below and above</p>
                     </div>
                     <label class="switch">
                         <input type="checkbox" @bind="settings.AlertsEnabled" />
@@ -106,6 +132,13 @@
             settings.DiskThreshold < 1 || settings.DiskThreshold > 100)
         {
             saveMessage = "Thresholds must be between 1 and 100.";
+            saveSuccess = false;
+            return;
+        }
+
+        if (settings.OfflineAfterMinutes < 1 || settings.OfflineAfterMinutes > 1440)
+        {
+            saveMessage = "The offline threshold must be between 1 minute and 24 hours.";
             saveSuccess = false;
             return;
         }

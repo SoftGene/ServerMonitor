@@ -68,7 +68,7 @@ flowchart LR
 
 | Проект | Роль | От кого зависит |
 |--------|------|-----------------|
-| `SeverMonitor.Domain` | Сущности и правила предметной области | ни от кого |
+| `ServerMonitor.Domain` | Сущности и правила предметной области | ни от кого |
 | `ServerMonitor.Collection` | **Новый.** Снятие метрик с машины | Domain |
 | `ServerMonitor.Agent` | **Новый.** Программа для наблюдаемой машины | Collection |
 | `ServerMonitor.Infrastructure` | БД, миграции, Telegram | Domain |
@@ -78,7 +78,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    Domain[SeverMonitor.Domain]
+    Domain[ServerMonitor.Domain]
     Collection[ServerMonitor.Collection]
     Agent[ServerMonitor.Agent]
     Infra[ServerMonitor.Infrastructure]
@@ -119,7 +119,7 @@ namespace ServerMonitor.Collection;
 
 ### 2.1. Поля и зачем каждое
 
-[`SeverMonitor.Domain/Entities/Server.cs`](../../SeverMonitor.Domain/Entities/Server.cs):
+[`ServerMonitor.Domain/Entities/Server.cs`](../../ServerMonitor.Domain/Entities/Server.cs):
 
 ```csharp
 public class Server
@@ -563,7 +563,7 @@ var query = from alert in _dbContext.Alerts.AsNoTracking()
 
 ### 6.3. Состояние машины считается, а не хранится
 
-[`ServerHealthCalculator`](../../SeverMonitor.Domain/Entities/ServerHealth.cs):
+[`ServerHealthCalculator`](../../ServerMonitor.Domain/Entities/ServerHealth.cs):
 
 ```csharp
 public static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(1);

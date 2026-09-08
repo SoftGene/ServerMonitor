@@ -29,7 +29,9 @@ public class SettingsController : ControllerBase
             CpuThreshold = settings.CpuThreshold,
             MemoryThreshold = settings.MemoryThreshold,
             DiskThreshold = settings.DiskThreshold,
-            AlertsEnabled = settings.AlertsEnabled
+            AlertsEnabled = settings.AlertsEnabled,
+            OfflineAfterSeconds = settings.OfflineAfterSeconds,
+            HeartbeatAlertsEnabled = settings.HeartbeatAlertsEnabled
         });
     }
 
@@ -43,6 +45,13 @@ public class SettingsController : ControllerBase
             return BadRequest("Thresholds must be between 1 and 100.");
         }
 
+        // Нижняя граница не косметическая: порог меньше интервала сбора означал бы, что
+        // машина «пропадает» между двумя нормальными замерами.
+        if (dto.OfflineAfterSeconds < 30 || dto.OfflineAfterSeconds > 86400)
+        {
+            return BadRequest("Offline threshold must be between 30 seconds and 24 hours.");
+        }
+
         var settings = await _dbContext.AppSettings.FirstOrDefaultAsync(cancellationToken);
 
         if (settings is null)
@@ -52,6 +61,8 @@ public class SettingsController : ControllerBase
         settings.MemoryThreshold = dto.MemoryThreshold;
         settings.DiskThreshold = dto.DiskThreshold;
         settings.AlertsEnabled = dto.AlertsEnabled;
+        settings.OfflineAfterSeconds = dto.OfflineAfterSeconds;
+        settings.HeartbeatAlertsEnabled = dto.HeartbeatAlertsEnabled;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
