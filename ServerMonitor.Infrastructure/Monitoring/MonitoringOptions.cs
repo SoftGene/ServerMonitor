@@ -1,23 +1,24 @@
-namespace ServerMonitor.Infrastructure.Monitoring;
+﻿namespace ServerMonitor.Infrastructure.Monitoring;
 
 /// <summary>
-/// Настройки алертинга из секции "Monitoring" конфигурации API.
+/// Alerting settings, read from the "Monitoring" section of the API configuration.
 /// <para>
-/// Интервал сбора здесь больше не живёт: сбором занимается агент на наблюдаемой машине,
-/// и частота замеров — его настройка (<c>Agent:CollectIntervalSeconds</c>). Держать её
-/// в конфигурации сервера было бы враньём — сервер на неё никак не влияет.
+/// The collection interval no longer lives here: collecting is the job of the agent on the
+/// watched machine, and how often it samples is its own setting
+/// (<c>Agent:CollectIntervalSeconds</c>). Keeping it in the server's configuration would be a
+/// lie — the server has no influence over it.
 /// </para>
 /// </summary>
 public class MonitoringOptions
 {
     public const string SectionName = "Monitoring";
 
-    /// <summary>Пауза между проверками порогов.</summary>
+    /// <summary>The pause between threshold checks.</summary>
     public int AlertCheckIntervalSeconds { get; set; } = 30;
 
     /// <summary>
-    /// Сколько проверок подряд значение должно превышать порог, прежде чем отправить
-    /// оповещение. Защита от дребезга: одиночный всплеск не поднимает тревогу.
+    /// How many checks in a row a value has to exceed the threshold before a notification
+    /// goes out. Protection against flapping: a single spike raises nothing.
     /// </summary>
     public int AlertConsecutiveSamples { get; set; } = 3;
 

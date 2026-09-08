@@ -1,9 +1,9 @@
-@inject NavigationManager Nav
+﻿@inject NavigationManager Nav
 
 @code {
     /// <summary>
-    /// Уводит незалогиненного на страницу входа, запоминая, куда он шёл, — чтобы после входа
-    /// попасть именно туда, а не на главную.
+    /// Sends a visitor who is not signed in to the login page, remembering where they were
+    /// headed so that signing in lands them there rather than on the home page.
     /// </summary>
     protected override void OnInitialized()
     {

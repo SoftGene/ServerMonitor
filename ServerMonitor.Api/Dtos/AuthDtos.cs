@@ -1,6 +1,6 @@
-namespace ServerMonitor.Api.Dtos;
+﻿namespace ServerMonitor.Api.Dtos;
 
-/// <summary>Состояние системы до входа: заведена ли хоть одна учётка.</summary>
+/// <summary>The state of the system before sign-in: whether any account exists yet.</summary>
 public class AuthStateDto
 {
     public bool HasUsers { get; set; }
@@ -13,8 +13,8 @@ public class LoginRequest
 }
 
 /// <summary>
-/// Ответ на успешный вход. Ничего секретного здесь нет: сессию держит веб-приложение
-/// своим cookie, API лишь подтверждает, что пара логин-пароль верна.
+/// The reply to a successful sign-in. Nothing secret here: the web app holds the session in
+/// its cookie, and the API merely confirms that the username and password match.
 /// </summary>
 public class LoginResponse
 {

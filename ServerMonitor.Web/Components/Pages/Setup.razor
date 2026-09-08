@@ -1,4 +1,4 @@
-@page "/setup"
+﻿@page "/setup"
 @using Microsoft.AspNetCore.Components.Endpoints
 @using ServerMonitor.Web.Services
 @attribute [ExcludeFromInteractiveRouting]
@@ -61,7 +61,7 @@
     {
         Error = System.Web.HttpUtility.ParseQueryString(new Uri(Nav.Uri).Query)["error"];
 
-        // Настройка уже пройдена — второй учётки этим путём заводить нельзя.
+        // Setup is already done — a second account must not be created this way.
         if (await AuthClient.HasUsersAsync())
         {
             Nav.NavigateTo("/login");

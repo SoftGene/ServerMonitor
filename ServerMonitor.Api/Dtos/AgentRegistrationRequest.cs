@@ -1,6 +1,6 @@
-namespace ServerMonitor.Api.Dtos;
+﻿namespace ServerMonitor.Api.Dtos;
 
-/// <summary>Что агент сообщает о себе при первом запуске.</summary>
+/// <summary>What an agent reports about itself on its first run.</summary>
 public class AgentRegistrationRequest
 {
     public string Hostname { get; set; } = string.Empty;

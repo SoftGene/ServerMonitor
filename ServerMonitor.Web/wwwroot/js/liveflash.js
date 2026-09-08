@@ -1,6 +1,6 @@
-// Фосфорная вспышка значений при обновлении данных.
-// Следит за текстовыми изменениями внутри .metric-value / .ch-val и
-// перезапускает CSS-анимацию .value-flash (см. app.css).
+﻿// Phosphor flash on values when data refreshes.
+// Watches for text changes inside .metric-value / .ch-val and restarts the
+// .value-flash CSS animation (see app.css).
 window.liveFlash = (function () {
     let observer = null;
 
@@ -13,7 +13,7 @@ window.liveFlash = (function () {
             if (el && !seen.has(el)) {
                 seen.add(el);
                 el.classList.remove('value-flash');
-                void el.offsetWidth; // перезапуск анимации
+                void el.offsetWidth; // restart the animation
                 el.classList.add('value-flash');
             }
         }

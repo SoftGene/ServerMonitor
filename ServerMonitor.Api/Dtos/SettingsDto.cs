@@ -1,4 +1,4 @@
-namespace ServerMonitor.Api.Dtos;
+﻿namespace ServerMonitor.Api.Dtos;
 
 public class SettingsDto
 {
@@ -7,7 +7,7 @@ public class SettingsDto
     public double DiskThreshold { get; set; }
     public bool AlertsEnabled { get; set; }
 
-    /// <summary>Сколько секунд молчания считать пропажей машины.</summary>
+    /// <summary>How many seconds of silence count as a machine having gone missing.</summary>
     public int OfflineAfterSeconds { get; set; }
 
     public bool HeartbeatAlertsEnabled { get; set; }

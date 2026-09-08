@@ -50,7 +50,7 @@
                     <div class="alert-icon">
                         @if (alert.MetricType == "Availability")
                         {
-                            @* Пропажа машины — не превышение порога, и иконка обязана это показывать. *@
+                            @* A missing machine is not a threshold breach, and the icon has to say so. *@
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6" /><path d="M18.4 6.6a9 9 0 11-12.8 0" /></svg>
                         }
                         else if (alert.AlertType == "Triggered")
@@ -64,7 +64,7 @@
                     </div>
                     <div class="alert-body">
                         <div class="alert-title">
-                            @* В общем списке машина обязательна: без неё событие не адресовано. *@
+                            @* In a shared list the machine is mandatory: without it the event is addressed to nothing. *@
                             @if (PublicId is null)
                             {
                                 <a class="alert-server" href="@($"servers/{alert.ServerPublicId}")">@alert.ServerName</a>
@@ -87,8 +87,8 @@
 
 @code {
     /// <summary>
-    /// Машина, если открыт список одной из них. null — общий список по всему парку:
-    /// вопрос «где вообще что-то сломалось» относится ко всем сразу.
+    /// The machine, when one machine's list is open. null means the fleet-wide list: the
+    /// question "where did something break" is about all of them at once.
     /// </summary>
     [Parameter]
     public Guid? PublicId { get; set; }
@@ -132,9 +132,9 @@
     }
 
     /// <summary>
-    /// Событие доступности читается иначе, чем превышение порога: «CPU exceeded threshold»
-    /// и «machine stopped reporting» — разные по смыслу вещи, и одинаковая формулировка
-    /// вводила бы в заблуждение.
+    /// An availability event reads differently from a threshold breach: "CPU exceeded
+    /// threshold" and "machine stopped reporting" mean different things, and identical
+    /// phrasing would mislead.
     /// </summary>
     private static string Title(Alert alert) => alert.MetricType switch
     {

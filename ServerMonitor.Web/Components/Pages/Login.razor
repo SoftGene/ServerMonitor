@@ -1,4 +1,4 @@
-@page "/login"
+﻿@page "/login"
 @using Microsoft.AspNetCore.Components.Endpoints
 @using ServerMonitor.Web.Services
 @attribute [ExcludeFromInteractiveRouting]
@@ -8,8 +8,8 @@
 
 <PageTitle>Sign in · ServerML</PageTitle>
 
-@* Никакого @onclick: форма отправляется обычным POST. Именно в этом весь смысл —
-   cookie можно выставить только там, где ещё существует HTTP-ответ. *@
+@* No @onclick anywhere: the form is submitted as a plain POST. That is the whole point —
+   a cookie can only be set where an HTTP response still exists. *@
 <div class="auth-page">
     <div class="auth-card">
         <div class="auth-brand">
@@ -54,7 +54,7 @@
         HasError = query["error"] is not null;
         ReturnUrl = query["returnUrl"] ?? "/";
 
-        // Пока нет ни одной учётки, входить некому — сначала первичная настройка.
+        // With no accounts yet there is nobody to sign in — first-run setup comes first.
         if (!await AuthClient.HasUsersAsync())
         {
             Nav.NavigateTo("/setup");

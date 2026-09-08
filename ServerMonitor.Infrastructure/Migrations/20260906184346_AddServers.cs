@@ -66,11 +66,11 @@ namespace ServerMonitor.Infrastructure.Migrations
                 column: "PublicId",
                 unique: true);
 
-            // Привязываем существующую историю к записи-заглушке ДО создания внешних ключей:
-            // иначе база отвергнет строки с ServerId = 0, у которых нет родителя.
-            // Имя фиксированное — миграция это статический SQL, и Environment.MachineName
-            // записал бы сюда имя машины разработчика у всех, кто развернёт проект.
-            // Настоящее имя запись получит при первой регистрации агента (усыновление).
+            // Attach the existing history to a placeholder row BEFORE creating the foreign
+            // keys, or the database will reject rows with ServerId = 0 that have no parent.
+            // The name is fixed because a migration is static SQL: Environment.MachineName
+            // would write the developer's hostname into everyone else's database.
+            // The row gets its real name when the first agent registers and adopts it.
             migrationBuilder.Sql("""
                 INSERT INTO "Servers" ("PublicId", "Name", "ApiKeyHash", "RegisteredAtUtc")
                 VALUES (gen_random_uuid(), 'this-machine', '', now());

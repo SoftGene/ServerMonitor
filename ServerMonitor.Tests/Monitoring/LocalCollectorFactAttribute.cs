@@ -1,13 +1,12 @@
-namespace ServerMonitor.Tests.Monitoring;
+﻿namespace ServerMonitor.Tests.Monitoring;
 
 /// <summary>
-/// Тест, который запускает настоящий сбор метрик и потому загружает сборку домена
-/// из папки тестов.
+/// A test that runs real metric collection and therefore loads the domain assembly from the
+/// test output folder.
 /// <para>
-/// На машинах с включённым Smart App Control (Windows: «Управление приложениями») загрузка
-/// свежесобранной неподписанной сборки блокируется с ошибкой 0x800711C7 — это политика
-/// системы, а не дефект кода. Поэтому такие тесты по умолчанию пропускаются и включаются
-/// переменной окружения:
+/// On machines with Smart App Control enabled, loading a freshly built unsigned assembly is
+/// blocked with error 0x800711C7 — a system policy rather than a defect in the code. Such
+/// tests are therefore skipped by default and switched on with an environment variable:
 /// </para>
 /// <code>
 /// SERVERMONITOR_RUN_COLLECTOR_TESTS=1 dotnet test
@@ -21,7 +20,7 @@ public sealed class LocalCollectorFactAttribute : FactAttribute
     {
         if (Environment.GetEnvironmentVariable(EnvironmentVariable) != "1")
         {
-            Skip = $"Установи {EnvironmentVariable}=1, чтобы запустить тесты реального сбора метрик.";
+            Skip = $"Set {EnvironmentVariable}=1 to run the real metric collection tests.";
         }
     }
 }

@@ -1,13 +1,13 @@
 namespace ServerMonitor.Domain.Entities;
 
-/// <summary>Наблюдаемая машина, на которой установлен агент.</summary>
+/// <summary>A watched machine with an agent installed on it.</summary>
 public class Server
 {
     public int Id { get; set; }
 
     /// <summary>
-    /// Идентификатор для URL и API. Отдельно от <see cref="Id"/>: последовательные числа в
-    /// адресах раскрывают количество серверов и позволяют перебирать чужие.
+    /// The identifier used in URLs and the API. Kept separate from <see cref="Id"/> because
+    /// sequential numbers in addresses reveal how many servers exist and invite enumeration.
     /// </summary>
     public Guid PublicId { get; set; }
 
@@ -16,13 +16,13 @@ public class Server
     public string? AgentVersion { get; set; }
 
     /// <summary>
-    /// SHA-256 персонального ключа агента. Пусто означает, что агент к записи ещё не привязан —
-    /// такое состояние бывает только у записи, созданной миграцией для старой истории.
+    /// SHA-256 of the agent's personal key. Empty means no agent is bound to this row yet —
+    /// a state only the row created by the migration for pre-existing history is ever in.
     /// </summary>
     public string ApiKeyHash { get; set; } = string.Empty;
 
     public DateTime RegisteredAtUtc { get; set; }
 
-    /// <summary>Когда от агента в последний раз приходили данные. По ней вычисляется статус.</summary>
+    /// <summary>When data last arrived from the agent. Health is derived from it.</summary>
     public DateTime? LastSeenUtc { get; set; }
 }

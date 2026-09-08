@@ -137,7 +137,7 @@
     {
         await LoadAsync();
 
-        // Парк опрашивается реже дашборда: здесь важен факт «жива или нет», а не секундная точность.
+        // The fleet polls less often than the dashboard: what matters here is alive or not, not second-by-second precision.
         refreshTimer = new Timer(async _ =>
         {
             await LoadAsync();
@@ -181,13 +181,13 @@
         _ => "is-offline"
     };
 
-    /// <summary>Число для человека — в культуре пользователя, как и на остальных экранах.</summary>
+    /// <summary>A number for a person, in the user's culture, as on every other screen.</summary>
     private static string FormatPercent(double? value) =>
         value is null ? "—" : $"{value.Value:0.#}%";
 
     /// <summary>
-    /// Ширина полоски уходит в CSS, поэтому только инвариантная культура: в ru-RU
-    /// запятая вместо точки сделала бы правило невалидным, и полоска встала бы на всю ширину.
+    /// The bar width goes into CSS, so invariant culture only: under ru-RU a comma instead of
+    /// a dot would make the rule invalid and the bar would stretch to full width.
     /// </summary>
     private static string BarWidth(double? value) =>
         Math.Clamp(value ?? 0, 0, 100).ToString("0.##", CultureInfo.InvariantCulture);
@@ -199,7 +199,7 @@
         _ => ""
     };
 
-    /// <summary>Точки спарклайна в координатах viewBox 100×28 — тоже машинный формат.</summary>
+    /// <summary>Sparkline points in the 100×28 viewBox — a machine format as well.</summary>
     private static string SparkPoints(ServerSummary server)
     {
         var trend = server.CpuTrend;

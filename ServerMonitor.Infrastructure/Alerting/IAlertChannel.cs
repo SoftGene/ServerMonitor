@@ -1,13 +1,13 @@
-namespace ServerMonitor.Infrastructure.Alerting;
+﻿namespace ServerMonitor.Infrastructure.Alerting;
 
 /// <summary>
-/// Куда уходит уведомление. Реализаций может быть несколько сразу — они регистрируются
-/// в контейнере и вызываются все.
+/// Where a notification goes. Several implementations can exist at once — they are all
+/// registered in the container and all of them are called.
 /// </summary>
 /// <remarks>
-/// Канал, который не настроен, обязан молча ничего не делать, а не бросать исключение:
-/// отсутствие настроенного Telegram — нормальное состояние системы, а не сбой. Именно
-/// поэтому раньше без токена бота не работала вся проверка порогов целиком.
+/// A channel that is not configured must quietly do nothing rather than throw: having no
+/// Telegram set up is a normal state of the system, not a failure. That confusion is exactly
+/// why threshold checking used to stop working entirely without a bot token.
 /// </remarks>
 public interface IAlertChannel
 {

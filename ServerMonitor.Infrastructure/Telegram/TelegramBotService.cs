@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -13,12 +13,13 @@ using Telegram.Bot.Types.Enums;
 namespace ServerMonitor.Infrastructure.Telegram;
 
 /// <summary>
-/// Отвечает на команды в Telegram. Больше ничего.
+/// Answers commands in Telegram. Nothing else.
 /// </summary>
 /// <remarks>
-/// Раньше этот класс делал три дела сразу: держал long polling, проверял пороги и отправлял
-/// сообщения. Из-за этого ранний выход при ненастроенном боте выключал заодно и проверку
-/// правил. Проверка переехала в <c>AlertingService</c>, отправка — в <c>TelegramAlertChannel</c>.
+/// This class used to do three jobs at once: hold the long polling connection, check the
+/// thresholds and send the messages. Because of that, its early return when no bot was
+/// configured switched off the rule checking too. Checking moved to <c>AlertingService</c>
+/// and sending to <c>TelegramAlertChannel</c>.
 /// </remarks>
 public class TelegramBotService : BackgroundService
 {
@@ -46,8 +47,8 @@ public class TelegramBotService : BackgroundService
 
         if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(_chatId))
         {
-            // Выходим только из обработки команд. Проверка правил живёт отдельно и
-            // продолжает работать.
+            // Only command handling stops here. Rule checking lives elsewhere and keeps
+            // running.
             _logger.LogWarning("Telegram bot token or chat ID is not configured. Bot commands disabled.");
             return;
         }
@@ -77,14 +78,14 @@ public class TelegramBotService : BackgroundService
 
         _logger.LogInformation("Telegram bot started receiving commands.");
 
-        // Приём обновлений работает в фоне, этому методу остаётся дождаться остановки.
+        // Receiving updates runs in the background; this method just waits for shutdown.
         try
         {
             await Task.Delay(Timeout.Infinite, stoppingToken);
         }
         catch (TaskCanceledException)
         {
-            // Штатная остановка.
+            // An orderly shutdown.
         }
 
         _logger.LogInformation("Telegram bot stopped.");
@@ -95,8 +96,8 @@ public class TelegramBotService : BackgroundService
         if (update.Message is not { Text: { } messageText } message)
             return;
 
-        // Отвечаем только в настроенный чат: иначе любой, кто найдёт бота,
-        // получит метрики сервера по команде /status.
+        // Reply only into the configured chat: otherwise anyone who finds the bot could ask
+        // /status and receive the server's metrics.
         if (!string.Equals(message.Chat.Id.ToString(), _chatId, StringComparison.Ordinal))
         {
             _logger.LogWarning("Ignored command from unauthorized chat {ChatId}.", message.Chat.Id);
@@ -187,8 +188,8 @@ public class TelegramBotService : BackgroundService
     }
 
     /// <summary>
-    /// Экранирует имя машины для parseMode=Html. Имя приходит от агента, то есть
-    /// снаружи, а символ &lt; сломал бы разметку сообщения.
+    /// Escapes the machine name for parseMode=Html. The name arrives from an agent, which is
+    /// to say from outside, and a &lt; would break the message markup.
     /// </summary>
     private static string Escape(string value) =>
         value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");

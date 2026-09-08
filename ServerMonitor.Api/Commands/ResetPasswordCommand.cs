@@ -1,21 +1,21 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using ServerMonitor.Infrastructure.Auth;
 using ServerMonitor.Infrastructure.Data;
 
 namespace ServerMonitor.Api.Commands;
 
 /// <summary>
-/// Аварийный сброс пароля с сервера: <c>dotnet run --project ServerMonitor.Api -- reset-password имя</c>
+/// Emergency password reset from the server: <c>dotnet run --project ServerMonitor.Api -- reset-password name</c>
 /// </summary>
 /// <remarks>
-/// Единственный путь восстановления, когда пароль забыт: канала доставки (почты) в проекте нет,
-/// а привязывать вход к Telegram означало бы вернуть зависимость от канала уведомлений, которую
-/// предыдущий этап специально убрал.
+/// The only recovery path for a forgotten password. There is no delivery channel (email) in
+/// this project, and tying sign-in to Telegram would restore the dependency on a notification
+/// channel that the previous stage deliberately removed.
 ///
-/// Это не дыра в безопасности. У того, кто может выполнить команду на сервере, уже есть строка
-/// подключения к базе — то есть он и так может подменить хеш вручную. Команда лишь избавляет от
-/// возни. Граница доступа здесь — <b>доступ к машине</b>, а не к приложению; для self-hosted это
-/// обычный и сознательный выбор.
+/// This is not a security hole. Whoever can run a command on the server already holds the
+/// database connection string and could replace the hash by hand; the command only saves them
+/// the trouble. The access boundary here is <b>access to the machine</b> rather than to the
+/// application, which is the ordinary and deliberate arrangement for self-hosted software.
 /// </remarks>
 public static class ResetPasswordCommand
 {
@@ -23,8 +23,9 @@ public static class ResetPasswordCommand
 
     public static async Task<int> RunAsync(string username)
     {
-        // Своя конфигурация, а не через WebApplication.CreateBuilder: тот разбирает args как
-        // ключи настроек и на голом слове «reset-password» упал бы с FormatException.
+        // Its own configuration rather than WebApplication.CreateBuilder: that one parses
+        // args as configuration keys and would throw a FormatException on a bare word like
+        // "reset-password".
         var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
 
         var configuration = new ConfigurationBuilder()
@@ -54,8 +55,8 @@ public static class ResetPasswordCommand
 
         if (user is null)
         {
-            // Здесь, в отличие от формы входа, скрывать нечего: команду выполняет владелец
-            // сервера, и ему полезно узнать, что имя набрано с опечаткой.
+            // Unlike the login form, there is nothing to conceal here: the person running
+            // this owns the server, and a typo in the name is worth telling them about.
             Console.Error.WriteLine($"No account named '{username}'.");
 
             var existing = await dbContext.Users.Select(u => u.Username).ToListAsync();
@@ -102,12 +103,13 @@ public static class ResetPasswordCommand
     }
 
     /// <summary>
-    /// Читает пароль без отображения на экране.
+    /// Reads a password without echoing it to the screen.
     /// </summary>
     /// <remarks>
-    /// Пароль читается из стандартного ввода, а не из аргумента команды: аргументы попадают в
-    /// историю оболочки и видны в списке процессов (<c>ps</c>) всем пользователям машины.
-    /// Ввод не отображается, чтобы он не остался в прокрутке терминала.
+    /// The password is read from standard input rather than from a command argument:
+    /// arguments land in shell history and are visible in the process list (<c>ps</c>) to
+    /// every user on the machine. The typing is not echoed so it does not survive in the
+    /// terminal scrollback.
     /// </remarks>
     private static string? ReadSecret(string prompt)
     {
@@ -154,8 +156,8 @@ public static class ResetPasswordCommand
         }
         catch (InvalidOperationException)
         {
-            // Ввод перенаправлен (запуск из скрипта) — посимвольное чтение недоступно.
-            // Читаем строкой и честно предупреждаем, что скрыть ввод не получилось.
+            // Input is redirected — a script rather than a terminal — so reading key by key
+            // is not available. Fall back to a line and say plainly that it was not hidden.
             Console.WriteLine();
             Console.Error.WriteLine("Warning: input is redirected, so the password was not hidden.");
 

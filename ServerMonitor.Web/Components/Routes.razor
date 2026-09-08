@@ -1,7 +1,7 @@
-<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+﻿<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">
-        @* AuthorizeRouteView вместо RouteView: он умеет показать другое содержимое,
-           когда у страницы стоит [Authorize], а пользователь не вошёл. *@
+        @* AuthorizeRouteView rather than RouteView: it can show something else when a page
+           carries [Authorize] and the visitor has not signed in. *@
         <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
             <NotAuthorized>
                 <RedirectToLogin />

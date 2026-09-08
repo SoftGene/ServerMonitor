@@ -1,8 +1,8 @@
-namespace ServerMonitor.Web.Models;
+﻿namespace ServerMonitor.Web.Models;
 
 /// <summary>
-/// Строка списка серверов. Повторяет ServerSummaryDto из API: фронтенд намеренно
-/// не ссылается на проекты бэкенда, связь между ними — только форма JSON.
+/// A row of the server list. Mirrors ServerSummaryDto from the API: the frontend deliberately
+/// references no backend project, and the only thing binding them is the shape of the JSON.
 /// </summary>
 public class ServerSummary
 {

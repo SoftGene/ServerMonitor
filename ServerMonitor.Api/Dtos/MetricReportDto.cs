@@ -1,6 +1,6 @@
-namespace ServerMonitor.Api.Dtos;
+﻿namespace ServerMonitor.Api.Dtos;
 
-/// <summary>Один замер в том виде, в каком его присылает агент.</summary>
+/// <summary>A single reading in the shape an agent sends it.</summary>
 public class MetricReportDto
 {
     public DateTime TimestampUtc { get; set; }

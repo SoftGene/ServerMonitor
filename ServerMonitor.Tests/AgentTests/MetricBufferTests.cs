@@ -1,6 +1,6 @@
-using ServerMonitor.Agent;
+﻿using ServerMonitor.Agent;
 
-// Не ServerMonitor.Tests.Agent: такое имя затеняло бы пространство имён самого агента.
+// Not ServerMonitor.Tests.Agent: that name would shadow the agent's own namespace.
 namespace ServerMonitor.Tests.AgentTests;
 
 public class MetricBufferTests
@@ -27,7 +27,7 @@ public class MetricBufferTests
         buffer.Add(Reading(2));
         buffer.Add(Reading(3));
 
-        // Свежие данные ценнее исторических: выбрасывается самый старый замер.
+        // Fresh data is worth more than old: the oldest reading is the one discarded.
         Assert.Equal(2, buffer.Count);
         Assert.Equal(new double[] { 2, 3 }, buffer.Snapshot().Select(r => r.CpuUsagePercent));
     }
@@ -59,7 +59,7 @@ public class MetricBufferTests
     [Fact]
     public void Remove_OnlyDropsWhatWasSent()
     {
-        // Пока запрос летел, цикл успел добавить новый замер — его терять нельзя.
+        // The loop added a new reading while the request was in flight — it must not be lost.
         var buffer = new MetricBuffer(capacity: 10);
         buffer.Add(Reading(1));
         buffer.Add(Reading(2));
@@ -74,7 +74,7 @@ public class MetricBufferTests
     [Fact]
     public void Capacity_IsAtLeastOne()
     {
-        // Ноль в конфигурации не должен превращать буфер в чёрную дыру.
+        // A zero in the configuration must not turn the buffer into a black hole.
         var buffer = new MetricBuffer(capacity: 0);
 
         buffer.Add(Reading(1));

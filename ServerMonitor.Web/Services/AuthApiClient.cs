@@ -1,11 +1,12 @@
-using System.Net;
+﻿using System.Net;
 using ServerMonitor.Web.Models;
 
 namespace ServerMonitor.Web.Services;
 
 /// <summary>
-/// Обращения к разделу учётных записей API. Сессию этот клиент не держит — она живёт в cookie
-/// веб-приложения; здесь только вопрос «пара логин-пароль верна?» и управление учётками.
+/// Calls into the account section of the API. This client holds no session — that lives in
+/// the web app's cookie; here there is only the question of whether a username and password
+/// match, plus account management.
 /// </summary>
 public class AuthApiClient
 {
@@ -16,7 +17,7 @@ public class AuthApiClient
         _httpClient = httpClient;
     }
 
-    /// <summary>Заведена ли хоть одна учётка. Пока нет — систему нужно настроить.</summary>
+    /// <summary>Whether any account exists yet. Until one does, the system needs setting up.</summary>
     public async Task<bool> HasUsersAsync(CancellationToken cancellationToken = default)
     {
         var state = await _httpClient.GetFromJsonAsync<AuthState>("api/auth/state", cancellationToken);
@@ -24,7 +25,7 @@ public class AuthApiClient
         return state?.HasUsers ?? false;
     }
 
-    /// <summary>Возвращает имя вошедшего или null. Причину отказа наружу не выносим.</summary>
+    /// <summary>Returns the name of whoever signed in, or null. The reason for a refusal stays inside.</summary>
     public async Task<string?> LoginAsync(string username, string password, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync(
@@ -44,7 +45,7 @@ public class AuthApiClient
         return result?.Username;
     }
 
-    /// <summary>Создаёт первую учётку. Возвращает текст ошибки или null при успехе.</summary>
+    /// <summary>Creates the first account. Returns an error message, or null on success.</summary>
     public async Task<string?> SetupAsync(string username, string password, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync(

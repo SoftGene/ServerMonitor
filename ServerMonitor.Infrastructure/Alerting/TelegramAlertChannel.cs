@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using ServerMonitor.Domain.Entities;
 using Telegram.Bot;
@@ -7,8 +7,8 @@ using Telegram.Bot.Types.Enums;
 namespace ServerMonitor.Infrastructure.Alerting;
 
 /// <summary>
-/// Отправляет уведомление в настроенный чат Telegram. Если бот не настроен, канал молча
-/// бездействует — это его нормальное состояние, а не ошибка.
+/// Sends a notification to the configured Telegram chat. With no bot configured the channel
+/// quietly does nothing — that is a normal state for it, not an error.
 /// </summary>
 public class TelegramAlertChannel : IAlertChannel
 {
@@ -50,8 +50,8 @@ public class TelegramAlertChannel : IAlertChannel
         }
         catch (Exception ex)
         {
-            // Недоставленное сообщение не должно ронять проверку правил: событие уже
-            // сохранено в журнале, а остальные каналы должны получить свой шанс.
+            // An undelivered message must not break the rule checking: the event is already
+            // stored in the journal, and the remaining channels deserve their turn.
             _logger.LogError(ex, "Failed to send a Telegram alert.");
         }
     }
@@ -79,8 +79,8 @@ public class TelegramAlertChannel : IAlertChannel
     }
 
     /// <summary>
-    /// Экранирует имя машины: оно приходит от агента, то есть снаружи, а уходит в сообщение
-    /// с parseMode=Html, где символ &lt; сломал бы разметку.
+    /// Escapes the machine name: it arrives from an agent, which is to say from outside, and
+    /// goes into a parseMode=Html message where a &lt; would break the markup.
     /// </summary>
     private static string Escape(string value) =>
         value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");

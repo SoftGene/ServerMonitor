@@ -1,8 +1,8 @@
-namespace ServerMonitor.Agent;
+﻿namespace ServerMonitor.Agent;
 
 /// <summary>
-/// Замер в том виде, в каком он уходит на сервер. Форма совпадает с MetricReportDto в API —
-/// общего кода между агентом и сервером нет, связывает их только форма JSON.
+/// A reading in the shape it travels to the server in. It matches MetricReportDto in the API:
+/// the agent and the server share no code, only the shape of the JSON.
 /// </summary>
 public class MetricReport
 {

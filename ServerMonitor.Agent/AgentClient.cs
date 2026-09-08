@@ -1,9 +1,9 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using System.Runtime.InteropServices;
 
 namespace ServerMonitor.Agent;
 
-/// <summary>Обёртка над двумя HTTP-вызовами к серверу мониторинга: регистрация и отправка.</summary>
+/// <summary>A wrapper over the two HTTP calls to the monitoring server: register and send.</summary>
 public class AgentClient
 {
     private readonly HttpClient _httpClient;
@@ -13,7 +13,7 @@ public class AgentClient
         _httpClient = httpClient;
     }
 
-    /// <summary>Первый запуск: обменять общий токен установки на персональный ключ.</summary>
+    /// <summary>First run: exchange the shared enrollment token for a personal key.</summary>
     public async Task<AgentState> RegisterAsync(string enrollmentToken, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "api/agents/register")
@@ -36,7 +36,7 @@ public class AgentClient
         return state ?? throw new InvalidOperationException("Registration response was empty.");
     }
 
-    /// <summary>Отправить пачку замеров. Пачкой — потому что после разрыва связи их накапливается много.</summary>
+    /// <summary>Sends a batch of readings. A batch, because a network outage leaves many of them.</summary>
     public async Task SendAsync(
         string apiKey,
         IReadOnlyList<MetricReport> readings,

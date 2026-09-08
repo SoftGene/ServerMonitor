@@ -22,24 +22,24 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Server>(entity =>
         {
-            // Публичный идентификатор ищется по каждому запросу от UI, ключ — по каждому
-            // приёму метрик; оба должны быть проиндексированы.
+            // The public id is looked up on every request from the UI and the key hash on
+            // every metric that arrives; both need an index.
             entity.HasIndex(s => s.PublicId).IsUnique();
             entity.HasIndex(s => s.ApiKeyHash);
         });
 
         modelBuilder.Entity<MetricSnapshot>(entity =>
         {
-            // Проценты вычисляются из абсолютных значений и колонок в базе не имеют.
+            // Percentages are derived from the absolute values and have no columns.
             entity.Ignore(m => m.MemoryUsagePercent);
             entity.Ignore(m => m.DiskUsagePercent);
 
-            // По этой колонке сортирует и фильтрует каждый запрос проекта. Без индекса
-            // PostgreSQL читает и сортирует всю таблицу, чтобы отдать одну последнюю строку.
+            // Every query in the project sorts and filters on this column. Without an index
+            // PostgreSQL reads and sorts the whole table to return a single latest row.
             entity.HasIndex(m => m.TimestampUtc);
 
-            // Запросы дашборда всегда идут по одной машине и с сортировкой по времени —
-            // составной индекс покрывает их целиком.
+            // Dashboard queries always target one machine and order by time, so a composite
+            // index covers them completely.
             entity.HasIndex(m => new { m.ServerId, m.TimestampUtc });
 
             entity.HasOne<Server>()
@@ -50,8 +50,8 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Alert>(entity =>
         {
-            // Перечисления хранятся в базе строками, как и раньше: старые записи
-            // ("CPU", "Triggered") продолжают читаться, миграция данных не нужна.
+            // Enums are stored as text, exactly as before: old rows ("CPU", "Triggered")
+            // keep reading back and no data migration is needed.
             entity.Property(a => a.MetricType)
                 .HasConversion(
                     kind => kind.ToDisplayName(),
@@ -72,8 +72,8 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<User>(entity =>
         {
-            // Уникальность имени — на уровне базы, а не только проверкой в коде: две
-            // одновременные регистрации иначе прошли бы обе.
+            // Username uniqueness is enforced by the database, not only by a check in code:
+            // two simultaneous registrations would otherwise both succeed.
             entity.HasIndex(u => u.Username).IsUnique();
         });
 

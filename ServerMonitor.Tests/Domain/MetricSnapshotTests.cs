@@ -1,4 +1,4 @@
-using ServerMonitor.Domain.Entities;
+﻿using ServerMonitor.Domain.Entities;
 
 namespace ServerMonitor.Tests.Domain;
 
@@ -31,7 +31,7 @@ public class MetricSnapshotTests
     [Fact]
     public void UsagePercent_ReturnsZeroWhenTotalIsUnknown()
     {
-        // Деления на ноль быть не должно: до первого успешного замера тотал равен нулю.
+        // No division by zero: before the first successful reading the total is zero.
         var snapshot = new MetricSnapshot { MemoryUsedMb = 100, MemoryTotalMb = 0, DiskUsedGb = 5, DiskTotalGb = 0 };
 
         Assert.Equal(0, snapshot.MemoryUsagePercent);
@@ -48,16 +48,16 @@ public class MetricKindExtensionsTests
     [InlineData(MetricKind.Availability, "Availability")]
     public void ToDisplayName_MatchesTheFormatStoredInTheDatabase(MetricKind kind, string expected)
     {
-        // Эти же строки лежат в колонке Alerts.MetricType, включая записи,
-        // сделанные до перехода на перечисления.
+        // These same strings sit in the Alerts.MetricType column, including rows written
+        // before the switch to enums.
         Assert.Equal(expected, kind.ToDisplayName());
     }
 
     [Fact]
     public void EveryKind_HasADisplayName()
     {
-        // Страховка на будущее: добавив значение в перечисление, легко забыть про строку,
-        // под которой оно ляжет в базу. Тест ловит пустое или дефолтное имя.
+        // Insurance for later: adding an enum value makes it easy to forget the string it
+        // will be stored under. This catches an empty or default name.
         foreach (var kind in Enum.GetValues<MetricKind>())
         {
             Assert.False(string.IsNullOrWhiteSpace(kind.ToDisplayName()));

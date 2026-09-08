@@ -1,14 +1,15 @@
-namespace ServerMonitor.Agent;
+﻿namespace ServerMonitor.Agent;
 
 /// <summary>
-/// Очередь замеров, которые ещё не приняты сервером.
+/// A queue of readings the server has not accepted yet.
 /// <para>
-/// При переполнении выбрасывается самый старый замер: дыра в середине истории терпима,
-/// а вот не знать, что происходит с машиной прямо сейчас — нет.
+/// When it overflows the oldest reading is discarded: a hole in the middle of the history is
+/// tolerable, not knowing what the machine is doing right now is not.
 /// </para>
 /// <para>
-/// Буфер живёт в памяти и перезапуск агента не переживает. Это осознанное упрощение:
-/// файл на диске потребовал бы формата, ротации и обработки повреждённых записей.
+/// The buffer lives in memory and does not survive a restart of the agent. That is a
+/// deliberate simplification: a file on disk would need a format, rotation and handling of
+/// corrupted records.
 /// </para>
 /// </summary>
 public class MetricBuffer
@@ -16,7 +17,7 @@ public class MetricBuffer
     private readonly Queue<MetricReport> _items = new();
     private readonly int _capacity;
 
-    // Добавляет цикл сбора, читает отправка — доступ к очереди нужно синхронизировать.
+    // The collect loop adds, the send path reads — access to the queue has to be synchronised.
     private readonly Lock _sync = new();
 
     public MetricBuffer(int capacity)
@@ -48,7 +49,7 @@ public class MetricBuffer
         }
     }
 
-    /// <summary>Копия текущего содержимого — её отправляют на сервер.</summary>
+    /// <summary>A copy of the current contents — this is what gets sent to the server.</summary>
     public IReadOnlyList<MetricReport> Snapshot()
     {
         lock (_sync)
@@ -58,8 +59,9 @@ public class MetricBuffer
     }
 
     /// <summary>
-    /// Убирает из начала очереди ровно столько элементов, сколько сервер подтвердил.
-    /// Именно столько, а не «всё»: пока летел запрос, цикл мог добавить новый замер.
+    /// Removes from the front exactly as many items as the server acknowledged.
+    /// Exactly that many rather than "everything": the loop may have added a new reading
+    /// while the request was in flight.
     /// </summary>
     public void Remove(int count)
     {

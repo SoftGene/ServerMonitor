@@ -7,8 +7,8 @@ using ServerMonitor.Infrastructure.Data;
 using ServerMonitor.Infrastructure.Monitoring;
 using ServerMonitor.Infrastructure.Telegram;
 
-// Разбираем команду ДО создания builder: тот скармливает args провайдеру конфигурации,
-// который на голом слове «reset-password» падает с FormatException.
+// Parse the command BEFORE creating the builder: that one feeds args to the configuration
+// provider, which throws a FormatException on a bare word like "reset-password".
 if (args is ["reset-password", var accountName])
 {
     return await ResetPasswordCommand.RunAsync(accountName);
@@ -37,20 +37,21 @@ builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-// Метрики API больше не снимает: их присылают агенты через POST api/ingest.
+// The API no longer collects metrics: agents send them via POST api/ingest.
 
-// Учётные записи. Троттлинг — singleton: счётчики промахов общие на всё приложение,
-// иначе каждый запрос начинал бы считать заново и защиты не было бы вовсе.
+// Accounts. The throttle is a singleton: the counters of failed attempts are shared across
+// the application, otherwise every request would start counting afresh and there would be no
+// protection at all.
 builder.Services.AddSingleton<PasswordService>();
 builder.Services.AddSingleton<LoginThrottle>();
 builder.Services.AddScoped<UserService>();
 
-// Каналы доставки. Журнальный нужен всегда — он гарантирует, что событие где-то видно
-// даже без настроенного Telegram.
+// Delivery channels. The log channel is always present — it guarantees an event is visible
+// somewhere even with no Telegram configured.
 builder.Services.AddSingleton<IAlertChannel, LogAlertChannel>();
 builder.Services.AddSingleton<IAlertChannel, TelegramAlertChannel>();
 
-// Проверка правил не зависит ни от одного канала: раньше ненастроенный бот выключал её целиком.
+// Rule checking depends on no channel: an unconfigured bot used to switch it off entirely.
 builder.Services.AddHostedService<AlertingService>();
 builder.Services.AddHostedService<TelegramBotService>();
 

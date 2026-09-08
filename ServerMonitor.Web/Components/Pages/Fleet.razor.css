@@ -1,4 +1,4 @@
-.fleet {
+﻿.fleet {
     padding: 36px 32px 48px;
     max-width: 1200px;
     margin: 0 auto;
@@ -85,8 +85,8 @@
     to { transform: rotate(360deg); }
 }
 
-/* Стойка: строки разделены 1px-линиями через gap на фоне цвета границы — тот же
-   приём, что и у панели приборов на дашборде. */
+/* Rack: rows separated by 1px lines, made with gap over a border-coloured background — the
+   same trick as the instrument panel on the dashboard. */
 .rack {
     position: relative;
     display: flex;
@@ -272,7 +272,7 @@
     color: var(--text-soft);
 }
 
-/* Машина молчит — гасим числа, чтобы застывшие значения не читались как живые. */
+/* The machine is silent: dim the numbers so frozen values are not read as live ones. */
 .is-offline .metric-value,
 .is-offline .row-name {
     color: var(--text-soft);
@@ -294,7 +294,7 @@
     color: var(--status-warn);
 }
 
-/* Пустой парк: вместо пустоты — что именно сделать, чтобы машина появилась. */
+/* An empty fleet: instead of emptiness, exactly what to do to make a machine appear. */
 .empty-rack {
     border: 1px solid var(--border);
     border-radius: var(--radius);

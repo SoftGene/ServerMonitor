@@ -1,4 +1,4 @@
-using ServerMonitor.Infrastructure.Auth;
+﻿using ServerMonitor.Infrastructure.Auth;
 
 namespace ServerMonitor.Tests.Auth;
 
@@ -66,7 +66,7 @@ public class LoginThrottleTests
 
         throttle.Reset("pavel");
 
-        // После сброса снова доступны все попытки, а не одна оставшаяся.
+        // After a reset the full budget of attempts is back, not just the one that was left.
         for (var i = 0; i < 4; i++)
         {
             throttle.RecordFailure("pavel", Now);
@@ -99,7 +99,7 @@ public class LoginThrottleTests
             throttle.RecordFailure("Pavel", Now);
         }
 
-        // Иначе перебор обходился бы сменой регистра в логине.
+        // Otherwise the throttle could be sidestepped by changing the case of the login.
         Assert.True(throttle.IsBlocked("pavel", Now));
     }
 
@@ -115,7 +115,7 @@ public class LoginThrottleTests
 
         var later = Now.AddMinutes(6);
 
-        // Блокировка истекла; одна новая неудача не должна снова блокировать.
+        // The block has expired; a single fresh failure must not lock it again.
         throttle.RecordFailure("pavel", later);
 
         Assert.False(throttle.IsBlocked("pavel", later));

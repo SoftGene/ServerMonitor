@@ -1,17 +1,17 @@
-using ServerMonitor.Domain.Entities;
+﻿using ServerMonitor.Domain.Entities;
 
 namespace ServerMonitor.Infrastructure.Alerting;
 
 /// <summary>
-/// Что произошло — в виде, не зависящем от канала доставки. Каналу не передаётся готовый
-/// текст: формулировка зависит от канала (в Telegram уместна разметка, в журнале нет),
-/// а вот факт один и тот же.
+/// What happened, in a form that does not depend on how it will be delivered. No ready-made
+/// text is handed to a channel: the wording depends on the channel — Telegram wants markup, a
+/// log line does not — while the fact is the same for all of them.
 /// </summary>
-/// <param name="ServerName">Машина, на которой произошло событие.</param>
-/// <param name="Metric">Метрика; <see cref="MetricKind.Availability"/> — событие доступности.</param>
-/// <param name="Kind">Началось или закончилось.</param>
-/// <param name="Value">Для порогов — значение метрики в процентах, для доступности — минут молчания.</param>
-/// <param name="Threshold">Порог в тех же единицах, что и <paramref name="Value"/>.</param>
+/// <param name="ServerName">The machine the event happened on.</param>
+/// <param name="Metric">The metric; <see cref="MetricKind.Availability"/> means an availability event.</param>
+/// <param name="Kind">Whether it started or ended.</param>
+/// <param name="Value">For thresholds, the metric in percent; for availability, minutes of silence.</param>
+/// <param name="Threshold">The threshold, in the same units as <paramref name="Value"/>.</param>
 public record AlertNotification(
     string ServerName,
     MetricKind Metric,

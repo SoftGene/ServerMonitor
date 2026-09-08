@@ -1,6 +1,6 @@
 namespace ServerMonitor.Domain.Entities;
 
-/// <summary>Метрика, к которой относится событие.</summary>
+/// <summary>The metric an event refers to.</summary>
 public enum MetricKind
 {
     Cpu,
@@ -8,15 +8,15 @@ public enum MetricKind
     Disk,
 
     /// <summary>
-    /// Доступность машины. Строго говоря, это не метрика: значение не приходит от агента,
-    /// а выводится из того, что данных нет. Событие живёт в общем журнале, потому что по
-    /// природе оно то же самое — у него есть машина, время и переходы «началось/закончилось».
-    /// Добавлено последним: значения хранятся в базе строками, порядок ни на что не влияет.
+    /// Machine availability. Strictly speaking not a metric: no agent sends this value, it is
+    /// inferred from the absence of data. The event still lives in the shared journal because
+    /// its shape is identical — a machine, a time, and a start and an end.
+    /// Added last: values are stored as text, so the ordering of this enum carries no meaning.
     /// </summary>
     Availability
 }
 
-/// <summary>Тип события: порог превышен или значение вернулось в норму.</summary>
+/// <summary>Direction of an event: a threshold was crossed, or the value came back to normal.</summary>
 public enum AlertKind
 {
     Triggered,
@@ -27,14 +27,14 @@ public class Alert
 {
     public int Id { get; set; }
 
-    /// <summary>Машина, к которой относится событие.</summary>
+    /// <summary>The machine this event belongs to.</summary>
     public int ServerId { get; set; }
     public DateTime TimestampUtc { get; set; }
 
     /// <summary>
-    /// Раньше здесь была строка, и опечатка вроде "Trigered" не остановила бы компилятор.
-    /// В базе значения по-прежнему хранятся текстом — за это отвечает конвертер значений
-    /// в AppDbContext, поэтому старые записи читаются без миграции данных.
+    /// This used to be a string, where a typo such as "Trigered" would not have stopped the
+    /// compiler. Values are still stored as text in the database — a value converter in
+    /// AppDbContext takes care of that — so older rows are read without migrating any data.
     /// </summary>
     public MetricKind MetricType { get; set; }
 

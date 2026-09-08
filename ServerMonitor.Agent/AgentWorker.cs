@@ -1,12 +1,12 @@
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using ServerMonitor.Collection;
 
 namespace ServerMonitor.Agent;
 
 /// <summary>
-/// Цикл агента: снять замер, положить в буфер, попытаться отправить весь буфер.
-/// Удалось — очищаем отправленное и спим обычный интервал; не удалось — оставляем в буфере
-/// и увеличиваем паузу.
+/// The agent loop: take a reading, put it in the buffer, try to send the whole buffer.
+/// On success, drop what was sent and sleep the normal interval; on failure, keep it in the
+/// buffer and grow the delay.
 /// </summary>
 public class AgentWorker : BackgroundService
 {
@@ -37,7 +37,7 @@ public class AgentWorker : BackgroundService
 
         if (state is null)
         {
-            // Без регистрации слать некуда. Сообщение уже записано в журнал.
+            // With no registration there is nowhere to send. The reason is already logged.
             return;
         }
 
@@ -66,7 +66,7 @@ public class AgentWorker : BackgroundService
 
                 await _client.SendAsync(state.ApiKey, pending, stoppingToken);
 
-                // Убираем ровно отправленное: за время запроса мог добавиться новый замер.
+                // Drop exactly what was sent: a new reading may have arrived mid-request.
                 _buffer.Remove(pending.Count);
                 sent = true;
 
@@ -77,7 +77,7 @@ public class AgentWorker : BackgroundService
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
-                // Штатная остановка, а не сбой: выходим молча.
+                // An orderly shutdown rather than a failure: leave quietly.
                 break;
             }
             catch (Exception ex)
@@ -105,8 +105,8 @@ public class AgentWorker : BackgroundService
     private static TimeSpan Min(TimeSpan left, TimeSpan right) => left < right ? left : right;
 
     /// <summary>
-    /// Возвращает сохранённое состояние, а при первом запуске регистрируется по общему токену
-    /// и сохраняет выданный ключ.
+    /// Returns the saved state, or on the first run registers with the shared token and
+    /// stores the key it receives.
     /// </summary>
     private async Task<AgentState?> EnsureRegisteredAsync(CancellationToken cancellationToken)
     {

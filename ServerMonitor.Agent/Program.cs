@@ -1,4 +1,4 @@
-using ServerMonitor.Agent;
+﻿using ServerMonitor.Agent;
 using ServerMonitor.Collection;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -8,7 +8,7 @@ builder.Services.Configure<AgentOptions>(
 
 var serverUrl = builder.Configuration["Agent:ServerUrl"];
 
-// Fail fast: без адреса сервера агент бесполезен, и лучше сказать об этом сразу.
+// Fail fast: without a server address the agent is useless, and saying so up front is kinder.
 if (string.IsNullOrWhiteSpace(serverUrl))
 {
     throw new InvalidOperationException(

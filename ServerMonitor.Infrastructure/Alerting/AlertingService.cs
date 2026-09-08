@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -10,13 +10,13 @@ using ServerMonitor.Infrastructure.Monitoring;
 namespace ServerMonitor.Infrastructure.Alerting;
 
 /// <summary>
-/// Проверяет правила и раздаёт события по каналам доставки.
+/// Checks the rules and hands events to the delivery channels.
 /// </summary>
 /// <remarks>
-/// Раньше эта работа жила внутри TelegramBotService, и его ранний выход при ненастроенном
-/// боте означал, что пороги не проверяются вовсе: канал доставки был выключателем всей
-/// функции. Здесь проверка не зависит ни от одного канала — события в любом случае
-/// попадают в журнал алертов.
+/// This work used to live inside TelegramBotService, whose early return when no bot was
+/// configured meant thresholds were not checked at all: the delivery channel was the on/off
+/// switch for the whole feature. Here the checking depends on no channel — events reach the
+/// alert journal either way.
 /// </remarks>
 public class AlertingService : BackgroundService
 {
@@ -28,7 +28,7 @@ public class AlertingService : BackgroundService
     private readonly MonitoringOptions _options;
     private readonly ILogger<AlertingService> _logger;
 
-    /// <summary>Состояние по паре «машина + метрика», включая доступность.</summary>
+    /// <summary>State per machine-and-metric pair, availability included.</summary>
     private readonly Dictionary<(int ServerId, MetricKind Kind), MetricAlertState> _states = new();
 
     public AlertingService(
@@ -49,8 +49,9 @@ public class AlertingService : BackgroundService
 
         await RestoreStateAsync(stoppingToken);
 
-        // После простоя API все машины выглядят пропавшими, хотя отчитаются в ближайшие
-        // секунды. Первый проход пропускает проверку доступности, давая агентам объявиться.
+        // After the API has been down, every machine looks missing even though each will
+        // report within seconds. The first pass skips the availability check, giving the
+        // agents a window to announce themselves.
         var isFirstPass = true;
 
         while (!stoppingToken.IsCancellationRequested)
@@ -96,8 +97,8 @@ public class AlertingService : BackgroundService
     }
 
     /// <summary>
-    /// Восстанавливает открытые тревоги по журналу, чтобы перезапуск не приводил к повторным
-    /// сообщениям о том, о чём уже сообщили, и не терял ожидаемое «восстановление».
+    /// Restores open alerts from the journal, so a restart neither repeats what has already
+    /// been announced nor loses a recovery that is still owed.
     /// </summary>
     private async Task RestoreStateAsync(CancellationToken cancellationToken)
     {
@@ -131,9 +132,9 @@ public class AlertingService : BackgroundService
 
                     if (kind == MetricKind.Availability)
                     {
-                        // В Value события записано, сколько минут машина молчала на момент
-                        // срабатывания. Отняв их от времени события, получаем момент
-                        // последнего замера перед пропажей.
+                        // The event's Value records how many minutes the machine had been
+                        // silent when it fired. Subtracting that from its timestamp gives
+                        // back the moment of the last reading before it went quiet.
                         state.SilentSinceUtc = lastAlert.TimestampUtc.AddMinutes(-lastAlert.Value);
                     }
                 }
@@ -144,8 +145,8 @@ public class AlertingService : BackgroundService
         }
         catch (Exception ex)
         {
-            // Не смогли прочитать — стартуем с чистого состояния. Хуже, чем точное
-            // восстановление, но не повод не запускать оповещения вовсе.
+            // Could not read it — start from a clean state. Worse than an exact restore,
+            // but no reason to leave alerting switched off entirely.
             _logger.LogError(ex, "Failed to restore alert state; starting with a clean state.");
         }
     }
@@ -184,8 +185,8 @@ public class AlertingService : BackgroundService
 
             if (health == ServerHealth.Offline)
             {
-                // Машина молчит — её последний замер устарел, судить о нагрузке по нему
-                // бессмысленно. О самой пропаже уже сообщено выше.
+                // The machine is silent, so its newest reading is stale and says nothing
+                // about current load. Its disappearance was already reported above.
                 continue;
             }
 
@@ -248,8 +249,8 @@ public class AlertingService : BackgroundService
 
         state.IsAlerting = false;
 
-        // Длительность простоя считаем от последнего замера перед пропажей. Если состояние
-        // восстановить не удалось, честнее показать ноль, чем выдумать число.
+        // Downtime is measured from the last reading before the silence. If that state could
+        // not be restored, zero is more honest than an invented number.
         var downtimeMinutes = state.SilentSinceUtc is null
             ? 0
             : (nowUtc - state.SilentSinceUtc.Value).TotalMinutes;
@@ -276,7 +277,7 @@ public class AlertingService : BackgroundService
         {
             state.ConsecutiveHighSamples++;
 
-            // Одиночный всплеск не поднимает тревогу: нужно несколько превышений подряд.
+            // A single spike raises nothing: several consecutive breaches are required.
             if (!state.IsAlerting && state.ConsecutiveHighSamples >= _options.RequiredConsecutiveSamples)
             {
                 state.IsAlerting = true;
@@ -300,9 +301,9 @@ public class AlertingService : BackgroundService
     }
 
     /// <summary>
-    /// Записывает событие в журнал и раздаёт его каналам. Сначала запись: журнал — источник
-    /// правды, по которому восстанавливается состояние, и он не должен зависеть от того,
-    /// дошло ли сообщение.
+    /// Writes the event to the journal and hands it to the channels. The write comes first:
+    /// the journal is the source of truth that state is restored from, and it must not depend
+    /// on whether a message was delivered.
     /// </summary>
     private async Task RaiseAsync(
         AppDbContext dbContext,
@@ -334,7 +335,7 @@ public class AlertingService : BackgroundService
         }
     }
 
-    /// <summary>Убирает состояние машин, которых больше нет, чтобы словарь не рос вечно.</summary>
+    /// <summary>Drops state for machines that no longer exist, so the dictionary stops growing.</summary>
     private void PruneRemovedServers(HashSet<int> existingServerIds)
     {
         var stale = _states.Keys

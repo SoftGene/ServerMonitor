@@ -1,11 +1,11 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ServerMonitor.Domain.Entities;
 using ServerMonitor.Infrastructure.Data;
 
 namespace ServerMonitor.Infrastructure.Auth;
 
-/// <summary>Почему вход не удался. Наружу эта причина не уходит — только в журнал.</summary>
+/// <summary>Why a sign-in failed. This reason never leaves the server — it only goes to the log.</summary>
 public enum LoginFailure
 {
     None,
@@ -22,8 +22,8 @@ public record LoginResult(User? User, LoginFailure Failure)
 public class UserService
 {
     /// <summary>
-    /// Хеш заведомо недостижимого пароля. Нужен, чтобы проверка несуществующего имени
-    /// занимала столько же времени, сколько проверка существующего, — см. VerifyAsync.
+    /// The hash of a password nobody can guess. It exists so that checking a username that
+    /// does not exist takes as long as checking one that does — see VerifyAsync.
     /// </summary>
     private static readonly string DummyHash =
         new PasswordService().Hash(Guid.NewGuid().ToString());
@@ -55,18 +55,19 @@ public class UserService
             .ToListAsync(cancellationToken);
 
     /// <summary>
-    /// Проверяет логин и пароль.
+    /// Verifies a username and password.
     /// </summary>
     /// <remarks>
-    /// Две вещи здесь сделаны намеренно.
+    /// Two things here are deliberate.
     ///
-    /// <b>Ответ одинаков</b> для «нет такого пользователя» и «неверный пароль». Разные ответы
-    /// позволили бы перебором выяснить, какие логины существуют, — а половина работы взломщика
-    /// как раз в этом.
+    /// <b>The answer is identical</b> for "no such user" and "wrong password". Different
+    /// answers would let an attacker enumerate which logins exist, and knowing that is half
+    /// the work.
     ///
-    /// <b>Хеш считается даже для несуществующего имени.</b> Иначе несуществующий логин
-    /// отвергался бы мгновенно, а существующий — после десятков тысяч итераций PBKDF2, и
-    /// разница во времени ответа выдала бы то же самое, что мы прячем в тексте ошибки.
+    /// <b>The hash is computed even for a name that does not exist.</b> Otherwise an unknown
+    /// login would be rejected instantly while a real one took tens of thousands of PBKDF2
+    /// iterations, and that difference in timing would leak exactly what the identical error
+    /// message hides.
     /// </remarks>
     public async Task<LoginResult> VerifyAsync(
         string username,
@@ -108,8 +109,8 @@ public class UserService
 
         if (verification == PasswordVerification.SuccessRehashNeeded)
         {
-            // Пароль верный, но хеш по устаревшим параметрам. Перезаписываем молча —
-            // пользователь ничего не замечает, стойкость подрастает.
+            // The password is right but the hash uses outdated parameters. Rewrite it
+            // quietly: the user notices nothing and the strength goes up.
             user.PasswordHash = _passwords.Hash(password);
 
             _logger.LogInformation("Password hash for {Username} upgraded to current parameters.", username);
@@ -161,8 +162,8 @@ public class UserService
     }
 
     /// <summary>
-    /// Удаляет учётку. Последнюю удалить нельзя: система заперла бы саму себя, а войти,
-    /// чтобы это исправить, было бы уже некому.
+    /// Deletes an account. The last one cannot go: the system would lock itself out, with
+    /// nobody left who could sign in and undo it.
     /// </summary>
     public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken)
     {

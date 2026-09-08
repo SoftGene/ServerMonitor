@@ -1,25 +1,25 @@
-namespace ServerMonitor.Agent;
+﻿namespace ServerMonitor.Agent;
 
-/// <summary>Настройки агента из секции "Agent" конфигурации.</summary>
+/// <summary>Agent settings, read from the "Agent" configuration section.</summary>
 public class AgentOptions
 {
     public const string SectionName = "Agent";
 
-    /// <summary>Адрес центрального API, например https://monitor.example.com.</summary>
+    /// <summary>Address of the central API, for example https://monitor.example.com.</summary>
     public string ServerUrl { get; set; } = string.Empty;
 
     /// <summary>
-    /// Общий токен установки. Нужен только при первом запуске: после регистрации агент
-    /// работает по персональному ключу, а токен больше не используется.
+    /// The shared enrollment token. Needed only on the first run: after registration the
+    /// agent works from its personal key and the token is never used again.
     /// </summary>
     public string EnrollmentToken { get; set; } = string.Empty;
 
     public int CollectIntervalSeconds { get; set; } = 5;
 
-    /// <summary>Сколько замеров держать при недоступном сервере. 720 — примерно час.</summary>
+    /// <summary>How many readings to hold while the server is unreachable. 720 is about an hour.</summary>
     public int BufferCapacity { get; set; } = 720;
 
-    /// <summary>Потолок паузы между повторами, чтобы не долбить лежащий сервер.</summary>
+    /// <summary>Ceiling for the retry delay, so a server that is down is not hammered.</summary>
     public int MaxRetryDelaySeconds { get; set; } = 300;
 
     public TimeSpan CollectInterval => TimeSpan.FromSeconds(Math.Max(1, CollectIntervalSeconds));

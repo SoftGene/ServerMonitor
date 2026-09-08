@@ -1,11 +1,11 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using ServerMonitor.Domain.Entities;
 
 namespace ServerMonitor.Infrastructure.Alerting;
 
 /// <summary>
-/// Пишет уведомление в журнал приложения. Нужен всегда: он гарантирует, что событие
-/// где-то видно, даже когда ни один внешний канал не настроен.
+/// Writes the notification to the application log. Always present: it guarantees an event is
+/// visible somewhere even when no external channel is configured.
 /// </summary>
 public class LogAlertChannel : IAlertChannel
 {
@@ -22,8 +22,8 @@ public class LogAlertChannel : IAlertChannel
 
         if (notification.Metric == MetricKind.Availability)
         {
-            // Формулировки разные не для красоты: «unreachable for 2 min» в момент
-            // возвращения читается как «всё ещё недоступна» и вводит в заблуждение.
+            // The two wordings differ for a reason: "unreachable for 2 min" at the moment of
+            // recovery reads as "still unreachable" and misleads.
             if (notification.Kind == AlertKind.Triggered)
             {
                 _logger.LogWarning(

@@ -1,8 +1,8 @@
 namespace ServerMonitor.Domain.Entities;
 
 /// <summary>
-/// Учётная запись человека. Ролей нет: все учётки равны, разделение прав — отдельная задача,
-/// до которой стоит дожить с реальной потребностью.
+/// A person's account. There are no roles: every account is equal, and splitting permissions
+/// is a separate job worth doing once there is a real need for it.
 /// </summary>
 public class User
 {
@@ -11,9 +11,10 @@ public class User
     public string Username { get; set; } = string.Empty;
 
     /// <summary>
-    /// Хеш пароля в самоописывающемся формате: внутри него лежат версия алгоритма, число
-    /// итераций и соль. Благодаря этому параметры можно усилить, не сбрасывая пароли —
-    /// старые хеши продолжат проверяться, а новые будут писаться по новым правилам.
+    /// The password hash in a self-describing format: the algorithm version, the iteration
+    /// count and the salt all live inside it. That is what allows the parameters to be
+    /// strengthened without resetting anyone's password — old hashes keep verifying while
+    /// new ones are written under the new rules.
     /// </summary>
     public string PasswordHash { get; set; } = string.Empty;
 

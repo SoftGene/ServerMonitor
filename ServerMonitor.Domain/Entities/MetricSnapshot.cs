@@ -4,7 +4,7 @@ public class MetricSnapshot
 {
     public int Id { get; set; }
 
-    /// <summary>Машина, с которой снят замер.</summary>
+    /// <summary>The machine this reading was taken from.</summary>
     public int ServerId { get; set; }
     public DateTime TimestampUtc { get; set; }
     public double CpuUsagePercent { get; set; }
@@ -15,17 +15,17 @@ public class MetricSnapshot
     public double UptimeSeconds { get; set; }
 
     /// <summary>
-    /// Доля занятой памяти в процентах. В базе не хранится — вычисляется из абсолютных
-    /// значений, поэтому формула живёт в одном месте.
+    /// Used memory as a percentage. Not stored — derived from the absolute values, so the
+    /// formula lives in exactly one place.
     /// </summary>
     /// <remarks>
-    /// Это обычное свойство C#, и в SQL оно не переводится: в запросах, где проекция
-    /// выполняется на стороне базы, деление приходится писать выражением вручную.
+    /// This is an ordinary C# property and does not translate to SQL: in queries whose
+    /// projection runs on the database side, the division has to be written out by hand.
     /// </remarks>
     public double MemoryUsagePercent =>
         MemoryTotalMb > 0 ? Math.Round(MemoryUsedMb / MemoryTotalMb * 100, 1) : 0;
 
-    /// <summary>Доля занятого места на диске в процентах. В базе не хранится.</summary>
+    /// <summary>Used disk space as a percentage. Not stored either.</summary>
     public double DiskUsagePercent =>
         DiskTotalGb > 0 ? Math.Round(DiskUsedGb / DiskTotalGb * 100, 1) : 0;
 }

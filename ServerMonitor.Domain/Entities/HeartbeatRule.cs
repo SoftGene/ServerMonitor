@@ -1,22 +1,23 @@
 namespace ServerMonitor.Domain.Entities;
 
 /// <summary>
-/// Решает, изменилось ли состояние доступности машины.
+/// Decides whether a machine's availability has just changed.
 /// </summary>
 /// <remarks>
-/// Чистая функция: и текущее состояние, и время приходят параметрами, ничего не читается
-/// из базы и не отправляется наружу. Только поэтому правило удаётся покрыть тестами —
-/// «сейчас» в тесте задаётся константой, и результат не зависит от момента запуска.
+/// A pure function: both the current state and the current time arrive as arguments, nothing
+/// is read from the database and nothing is sent anywhere. That is the only reason the rule
+/// can be covered by tests at all — "now" is a constant in the test, so the result does not
+/// depend on when the suite runs.
 /// </remarks>
 public static class HeartbeatRule
 {
-    /// <param name="isAlerting">Тревога по этой машине уже открыта.</param>
-    /// <param name="lastSeenUtc">Когда от машины последний раз приходили данные.</param>
-    /// <param name="nowUtc">Момент проверки.</param>
-    /// <param name="offlineAfter">Сколько молчания считать пропажей.</param>
+    /// <param name="isAlerting">An alert for this machine is already open.</param>
+    /// <param name="lastSeenUtc">When data last arrived from the machine.</param>
+    /// <param name="nowUtc">The moment of the check.</param>
+    /// <param name="offlineAfter">How much silence counts as the machine being gone.</param>
     /// <returns>
-    /// <c>Triggered</c> — машина только что признана недоступной, <c>Recovered</c> — снова
-    /// отвечает, <c>null</c> — ничего не изменилось и сообщать не о чем.
+    /// <c>Triggered</c> when the machine has just been judged unreachable, <c>Recovered</c>
+    /// when it answers again, <c>null</c> when nothing changed and there is nothing to report.
     /// </returns>
     public static AlertKind? Evaluate(
         bool isAlerting,
@@ -26,14 +27,14 @@ public static class HeartbeatRule
     {
         if (lastSeenUtc is null)
         {
-            // Данных не было никогда: агент зарегистрировался, но ни разу не отчитался.
-            // Это незаконченная установка, а не авария — ни поднимать тревогу, ни снимать
-            // её не о чем.
+            // No data has ever arrived: the agent registered but never reported. That is an
+            // unfinished install rather than an outage — there is nothing to raise and
+            // nothing to clear.
             return null;
         }
 
-        // Разница может оказаться отрицательной, если часы агента ушли вперёд. Такой замер
-        // считается свежим, и это правильно: расхождение часов — не признак пропажи машины.
+        // The difference can be negative when the agent's clock has run ahead. Such a reading
+        // counts as fresh, and rightly so: clock skew is not evidence that a machine died.
         var isSilent = nowUtc - lastSeenUtc.Value > offlineAfter;
 
         if (isSilent && !isAlerting)
@@ -46,8 +47,8 @@ public static class HeartbeatRule
             return AlertKind.Recovered;
         }
 
-        // Состояние не изменилось. Сообщаем на переход, а не на состояние — иначе каждую
-        // проверку приходило бы «машина всё ещё недоступна».
+        // Nothing changed. The alert fires on the transition rather than on the state,
+        // otherwise every check would announce "the machine is still unreachable".
         return null;
     }
 }

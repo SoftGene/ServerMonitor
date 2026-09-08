@@ -1,4 +1,4 @@
-.settings-page {
+﻿.settings-page {
     max-width: 700px;
     margin: 0 auto;
     padding: 36px 32px 48px;
@@ -39,7 +39,7 @@
     border-bottom: none;
 }
 
-/* Нумерованные mono-заголовки секций через CSS-счётчики */
+/* Numbered monospace section headings, driven by CSS counters */
 .setting-section h2 {
     counter-increment: section;
     font-family: var(--font-mono);
@@ -122,7 +122,7 @@
     font-size: 13px;
 }
 
-/* Приборный тумблер: прямые углы, квадратный бегунок */
+/* Instrument-style toggle: square corners, square knob */
 .switch {
     position: relative;
     display: inline-block;

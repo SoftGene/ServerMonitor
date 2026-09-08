@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServerMonitor.Api.Dtos;
 using ServerMonitor.Domain.Entities;
@@ -12,8 +12,8 @@ namespace ServerMonitor.Api.Controllers;
 public class IngestController : ControllerBase
 {
     /// <summary>
-    /// Ограничение на размер пачки: агент досылает накопленный буфер, но клиент не должен
-    /// иметь возможности прислать произвольно большой запрос.
+    /// A cap on the batch size: an agent flushes whatever it buffered, but no client should
+    /// be able to send an arbitrarily large request.
     /// </summary>
     private const int MaxBatchSize = 1000;
 
@@ -37,7 +37,7 @@ public class IngestController : ControllerBase
             return Unauthorized();
         }
 
-        // Ключ ищется по хешу: в базе открытого значения нет.
+        // The key is looked up by its hash: the plain value is not stored.
         var hash = ApiKeyGenerator.Hash(apiKey);
 
         var server = await _dbContext.Servers
@@ -65,8 +65,8 @@ public class IngestController : ControllerBase
             _dbContext.MetricSnapshots.Add(new MetricSnapshot
             {
                 ServerId = server.Id,
-                // Агент присылает UTC, но после разбора JSON пометка часового пояса может
-                // потеряться, а колонка объявлена как timestamp with time zone.
+                // The agent sends UTC, but the timezone marker can be lost when the JSON is
+                // parsed, and the column is declared as timestamp with time zone.
                 TimestampUtc = DateTime.SpecifyKind(reading.TimestampUtc, DateTimeKind.Utc),
                 CpuUsagePercent = reading.CpuUsagePercent,
                 MemoryUsedMb = reading.MemoryUsedMb,

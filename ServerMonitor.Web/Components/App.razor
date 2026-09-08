@@ -32,8 +32,8 @@
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
 
-    // Страницы входа и первичной настройки отрисовываются статически: им нужен живой
-    // HttpContext, чтобы выставить cookie. Остальное приложение остаётся интерактивным.
+    // The sign-in and first-run pages render statically: they need a live HttpContext to set
+    // a cookie. The rest of the application stays interactive.
     private IComponentRenderMode? RenderModeForPage =>
         HttpContext.AcceptsInteractiveRouting() ? InteractiveServer : null;
 }

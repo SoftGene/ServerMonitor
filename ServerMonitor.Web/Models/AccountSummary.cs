@@ -1,6 +1,6 @@
-namespace ServerMonitor.Web.Models;
+﻿namespace ServerMonitor.Web.Models;
 
-/// <summary>Учётная запись в списке настроек. Повторяет UserDto из API — связь только по форме JSON.</summary>
+/// <summary>An account in the settings list. Mirrors UserDto from the API — the only link is the shape of the JSON.</summary>
 public class AccountSummary
 {
     public int Id { get; set; }

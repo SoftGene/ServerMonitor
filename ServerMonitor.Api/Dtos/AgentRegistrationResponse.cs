@@ -1,6 +1,6 @@
-namespace ServerMonitor.Api.Dtos;
+﻿namespace ServerMonitor.Api.Dtos;
 
-/// <summary>Ответ регистрации. Ключ отдаётся ровно один раз и больше не восстанавливается.</summary>
+/// <summary>The registration reply. The key is handed out exactly once and cannot be recovered.</summary>
 public class AgentRegistrationResponse
 {
     public Guid ServerId { get; set; }

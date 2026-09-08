@@ -1,23 +1,23 @@
-using System.Globalization;
+﻿using System.Globalization;
 
 namespace ServerMonitor.Collection;
 
 /// <summary>
-/// Разбор текстовых форматов Linux /proc и вычисление загрузки процессора.
+/// Parsing of the Linux /proc text formats and the CPU usage calculation.
 /// <para>
-/// Здесь нет обращений к файловой системе: на вход подаётся уже прочитанный текст.
-/// Так эти функции можно покрыть тестами, не имея под рукой Linux.
+/// Nothing here touches the file system: the already-read text is passed in. That is what
+/// makes these functions testable without a Linux machine at hand.
 /// </para>
 /// <para>
-/// Все числа разбираются с <see cref="CultureInfo.InvariantCulture"/>: содержимое /proc —
-/// машинный формат с точкой в роли разделителя дробной части, и от языка системы он не
-/// зависит. Без явного указания культуры процесс, запущенный, например, с ru-RU, не смог бы
-/// разобрать "348915.42".
+/// Every number is parsed with <see cref="CultureInfo.InvariantCulture"/>: the contents of
+/// /proc are a machine format with a dot for the decimal separator and do not depend on the
+/// system language. Without stating the culture explicitly, a process running under, say,
+/// ru-RU would fail to parse "348915.42".
 /// </para>
 /// </summary>
 public static class ProcParser
 {
-    /// <summary>Разбирает содержимое /proc/meminfo. Значения возвращаются в килобайтах.</summary>
+    /// <summary>Parses the contents of /proc/meminfo. Values are returned in kilobytes.</summary>
     public static (double TotalKb, double AvailableKb) ParseMemInfo(IEnumerable<string> lines)
     {
         ArgumentNullException.ThrowIfNull(lines);
@@ -45,7 +45,7 @@ public static class ProcParser
         return (totalKb, availableKb);
     }
 
-    /// <summary>Разбирает первое число из /proc/uptime — секунды с момента загрузки системы.</summary>
+    /// <summary>Parses the first number of /proc/uptime — seconds since the system booted.</summary>
     public static double ParseUptimeSeconds(string content)
     {
         if (string.IsNullOrWhiteSpace(content))
@@ -64,8 +64,8 @@ public static class ProcParser
     }
 
     /// <summary>
-    /// Разбирает суммарную строку "cpu ..." из /proc/stat.
-    /// Время ожидания диска (iowait) считается простоем — так же поступает утилита top.
+    /// Parses the aggregate "cpu ..." line of /proc/stat.
+    /// Time spent waiting on disk (iowait) counts as idle, which is what top does too.
     /// </summary>
     public static CpuTimes ParseCpuTimes(string statLine)
     {
@@ -76,7 +76,7 @@ public static class ProcParser
 
         var parts = statLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-        // cpu user nice system idle iowait irq softirq — минимум 8 полей
+        // cpu user nice system idle iowait irq softirq — at least 8 fields
         if (parts.Length < 8 || !parts[0].StartsWith("cpu", StringComparison.Ordinal))
         {
             throw new FormatException($"/proc/stat cpu line has an unexpected format: '{statLine.Trim()}'.");
@@ -98,24 +98,24 @@ public static class ProcParser
     }
 
     /// <summary>
-    /// Вычисляет загрузку процессора в процентах по двум замерам счётчиков.
-    /// Работает и для Linux (/proc/stat), и для Windows (GetSystemTimes) — счётчики устроены
-    /// одинаково: накопленное время простоя и накопленное общее время.
+    /// Calculates CPU usage as a percentage from two counter readings.
+    /// Works for Linux (/proc/stat) and Windows (GetSystemTimes) alike — the counters have the
+    /// same shape: accumulated idle time and accumulated total time.
     /// </summary>
     public static double CalculateCpuUsagePercent(CpuTimes first, CpuTimes second)
     {
         var totalDelta = second.Total - first.Total;
         var idleDelta = second.Idle - first.Idle;
 
-        // Счётчики не изменились или пошли назад (перезапуск источника) — считаем нулём,
-        // это честнее, чем деление на ноль или отрицательная загрузка.
+        // The counters did not move, or went backwards because the source restarted. Zero is
+        // a more honest answer than a division by zero or a negative load.
         if (totalDelta <= 0)
         {
             return 0;
         }
 
-        // Приведение к double обязательно: без него целочисленное деление даст 0,
-        // и загрузка всегда получалась бы ровно 100 %.
+        // The cast to double is required: integer division would yield 0 here, and the usage
+        // would always come out as exactly 100%.
         var usage = (1.0 - (double)idleDelta / totalDelta) * 100.0;
 
         return Math.Round(Math.Clamp(usage, 0, 100), 2);

@@ -1,4 +1,4 @@
-using ServerMonitor.Domain.Entities;
+﻿using ServerMonitor.Domain.Entities;
 
 namespace ServerMonitor.Tests.Domain;
 
@@ -10,15 +10,15 @@ public class HeartbeatRuleTests
     [Fact]
     public void NeverReported_IsNotAnAlert()
     {
-        // Агент зарегистрировался, но ни разу не прислал данные — это незаконченная
-        // установка, а не авария.
+        // The agent registered but never sent anything — an unfinished install rather than
+        // an outage.
         Assert.Null(HeartbeatRule.Evaluate(isAlerting: false, lastSeenUtc: null, Now, Offline));
     }
 
     [Fact]
     public void NeverReported_WhileAlerting_DoesNotRecover()
     {
-        // Машина без данных не «выздоравливает» сама по себе.
+        // A machine with no data never "recovers" on its own.
         Assert.Null(HeartbeatRule.Evaluate(isAlerting: true, lastSeenUtc: null, Now, Offline));
     }
 
@@ -39,8 +39,8 @@ public class HeartbeatRuleTests
     [Fact]
     public void SilenceContinuing_DoesNotRepeat()
     {
-        // Сообщаем на переход, а не на состояние: иначе каждые полминуты приходило бы
-        // «машина всё ещё недоступна».
+        // The alert fires on the transition, not the state: otherwise "the machine is still
+        // unreachable" would arrive every half minute.
         Assert.Null(HeartbeatRule.Evaluate(isAlerting: true, Now.AddMinutes(-40), Now, Offline));
     }
 
@@ -67,8 +67,8 @@ public class HeartbeatRuleTests
     {
         var lastSeen = Now.AddMinutes(-2);
 
-        // Тот же момент времени — разный вердикт при разном пороге. Порог настраиваемый,
-        // и правило обязано считаться именно с переданным значением.
+        // The same instant, a different verdict under a different threshold. The threshold is
+        // configurable, and the rule has to honour the value it was given.
         Assert.Null(HeartbeatRule.Evaluate(false, lastSeen, Now, TimeSpan.FromMinutes(5)));
         Assert.Equal(
             AlertKind.Triggered,
@@ -78,8 +78,8 @@ public class HeartbeatRuleTests
     [Fact]
     public void ClockSkew_FutureTimestamp_IsTreatedAsFresh()
     {
-        // Часы агента могут уйти вперёд. Замер «из будущего» — не повод объявлять машину
-        // пропавшей: разница отрицательная, порог не превышен.
+        // An agent's clock can run ahead. A reading "from the future" is no reason to declare
+        // a machine missing: the difference is negative and the threshold is not exceeded.
         Assert.Null(HeartbeatRule.Evaluate(isAlerting: false, Now.AddMinutes(10), Now, Offline));
     }
 }

@@ -1,21 +1,21 @@
-namespace ServerMonitor.Infrastructure.Auth;
+﻿namespace ServerMonitor.Infrastructure.Auth;
 
 /// <summary>
-/// Счётчик неудачных входов. После нескольких промахов подряд имя временно блокируется.
+/// A counter of failed sign-ins. After several misses in a row the name is blocked for a while.
 /// </summary>
 /// <remarks>
-/// Считаем по <b>имени пользователя</b>, а не по IP-адресу. За одним адресом может сидеть
-/// целый дом или офис, и блокировка по нему превратилась бы в отказ в обслуживании для
-/// соседей. Обратная сторона выбора названа честно: зная логин, посторонний может временно
-/// закрыть вход владельцу. Для домашней системы это приемлемая цена, для публичного сервиса
-/// понадобилась бы связка «имя + адрес» и капча.
+/// Counted per <b>username</b> rather than per IP address. A whole house or office can sit
+/// behind one address, so blocking by it would deny service to bystanders. The cost of the
+/// choice is stated rather than hidden: someone who knows the login can lock the owner out
+/// for a while. That is an acceptable price for a home system; a public service would need
+/// a name-and-address pair plus a captcha.
 ///
-/// Время приходит параметром — тот же приём, что в HeartbeatRule: иначе поведение блокировки
-/// нельзя было бы проверить тестами, не засыпая на пять минут.
+/// Time arrives as an argument — the same trick as in HeartbeatRule: otherwise the expiry
+/// behaviour could not be tested without sleeping for five minutes.
 ///
-/// Состояние живёт в памяти. После перезапуска счётчики обнуляются, и это осознанно: хранить
-/// их в базе означало бы запись на каждую неудачную попытку — удобная мишень для того, кто
-/// захочет нагрузить диск чужого сервера.
+/// The state lives in memory. Counters reset on restart, and that is deliberate: keeping
+/// them in the database would mean a write per failed attempt — a convenient way to make
+/// someone else's disk do the work.
 /// </remarks>
 public class LoginThrottle
 {
@@ -52,8 +52,8 @@ public class LoginThrottle
                 return true;
             }
 
-            // Срок вышел: снимаем блокировку и начинаем счёт заново, иначе следующая же
-            // неудача снова заблокировала бы вход.
+            // The block has expired: clear it and start counting again, otherwise the very
+            // next failure would lock the account straight back out.
             _attempts.Remove(username);
 
             return false;
@@ -85,7 +85,7 @@ public class LoginThrottle
         }
     }
 
-    /// <summary>Успешный вход стирает историю промахов.</summary>
+    /// <summary>A successful sign-in wipes the history of misses.</summary>
     public void Reset(string username)
     {
         lock (_sync)

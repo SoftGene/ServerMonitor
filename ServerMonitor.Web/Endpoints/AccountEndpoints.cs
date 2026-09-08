@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -7,17 +7,17 @@ using ServerMonitor.Web.Services;
 namespace ServerMonitor.Web.Endpoints;
 
 /// <summary>
-/// Вход и выход — обычными HTTP-запросами, а не через компоненты Blazor.
+/// Sign-in and sign-out as plain HTTP requests rather than through Blazor components.
 /// </summary>
 /// <remarks>
-/// Причина не в стиле, а в устройстве. Приложение работает в режиме InteractiveServer, то есть
-/// страницы живут внутри соединения SignalR. Cookie же выставляется <b>заголовком HTTP-ответа</b>,
-/// а он давно отправлен — ещё когда страница загружалась. Обработчик кнопки в интерактивном
-/// компоненте физически не может залогинить пользователя: вызов SignInAsync там завершится
-/// исключением про уже отправленные заголовки.
+/// The reason is structural rather than stylistic. The app runs in InteractiveServer mode, so
+/// its pages live inside a SignalR connection. A cookie, however, is set by an <b>HTTP response
+/// header</b>, and that response was sent long ago — back when the page was loading. A button
+/// handler in an interactive component physically cannot sign anyone in: calling SignInAsync
+/// there ends in an exception about headers that have already been sent.
 ///
-/// Поэтому вход возвращён в обычный цикл «запрос — ответ»: форма шлёт POST сюда, здесь есть
-/// живой HttpContext, и cookie уходит в заголовке ответа.
+/// So sign-in is returned to an ordinary request/response round trip: the form posts here,
+/// there is a live HttpContext, and the cookie goes out in the response header.
 /// </remarks>
 public static class AccountEndpoints
 {
@@ -31,9 +31,9 @@ public static class AccountEndpoints
         {
             var logger = loggerFactory.CreateLogger("Account");
 
-            // Форму читаем вручную, поэтому автоматическая проверка middleware сюда не
-            // распространяется — вызываем её явно. Без неё чужой сайт мог бы залогинить
-            // посетителя в подставную учётку (login CSRF).
+            // The form is read by hand, so the middleware's automatic check does not apply
+            // here — it is invoked explicitly. Without it another site could sign a visitor
+            // into an account of its choosing (login CSRF).
             if (!await IsRequestValidAsync(antiforgery, context, logger))
             {
                 return Results.Redirect("/login?error=1");
@@ -96,7 +96,7 @@ public static class AccountEndpoints
                 return Results.Redirect($"/setup?error={Uri.EscapeDataString(problem)}");
             }
 
-            // Учётка создана — сразу впускаем, чтобы не заставлять входить второй раз подряд.
+            // The account exists now, so sign them straight in rather than asking twice in a row.
             var identity = new ClaimsIdentity(
                 [new Claim(ClaimTypes.Name, username)],
                 CookieAuthenticationDefaults.AuthenticationScheme);
@@ -138,12 +138,12 @@ public static class AccountEndpoints
     }
 
     /// <summary>
-    /// Разрешает только относительные адреса внутри сайта.
+    /// Allows only site-relative addresses.
     /// </summary>
     /// <remarks>
-    /// Без этой проверки параметр returnUrl превращается в <b>открытое перенаправление</b>
-    /// (open redirect): ссылка вида /login?returnUrl=https://зло.example выглядит ссылкой на
-    /// наш сайт, но после входа уводит на чужой. Классический приём в фишинге.
+    /// Without this check the returnUrl parameter becomes an <b>open redirect</b>: a link
+    /// such as /login?returnUrl=https://evil.example looks like a link to our site but leads
+    /// somewhere else once the visitor has signed in. A classic phishing technique.
     /// </remarks>
     private static string SafeReturnUrl(string? returnUrl)
     {

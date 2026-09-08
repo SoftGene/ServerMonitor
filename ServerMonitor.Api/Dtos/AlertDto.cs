@@ -1,4 +1,4 @@
-namespace ServerMonitor.Api.Dtos;
+﻿namespace ServerMonitor.Api.Dtos;
 
 public class AlertDto
 {
@@ -9,7 +9,7 @@ public class AlertDto
     public double Threshold { get; set; }
     public string AlertType { get; set; } = string.Empty;
 
-    /// <summary>Машина, на которой сработал порог. В общем списке без неё событие бессмысленно.</summary>
+    /// <summary>The machine the threshold fired on. In a shared list the event means nothing without it.</summary>
     public string ServerName { get; set; } = string.Empty;
     public Guid ServerPublicId { get; set; }
 }

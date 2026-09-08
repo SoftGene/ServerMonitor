@@ -119,8 +119,8 @@
                                             : $"last seen {account.LastLoginUtc.Value.ToLocalTime():dd MMM, HH:mm}")
                                     </div>
                                 </div>
-                                @* Себя удалить нельзя: это мгновенная потеря доступа к открытой странице.
-                                   Последнюю учётку не даёт удалить и сервер. *@
+                                @* You cannot remove yourself: that is an instant loss of access to the page
+                                   you are standing on. The server also refuses to delete the last account. *@
                                 @if (account.Username != CurrentUser && accounts.Count > 1)
                                 {
                                     <button class="link-danger" @onclick="() => DeleteAccount(account)">Remove</button>

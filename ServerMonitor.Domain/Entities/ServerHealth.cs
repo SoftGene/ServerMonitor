@@ -1,6 +1,6 @@
 namespace ServerMonitor.Domain.Entities;
 
-/// <summary>Состояние сервера, выведенное из свежести пришедших данных.</summary>
+/// <summary>Machine state, derived from how fresh its data is.</summary>
 public enum ServerHealth
 {
     Online,
@@ -10,16 +10,16 @@ public enum ServerHealth
 
 public static class ServerHealthCalculator
 {
-    /// <summary>Данных нет дольше минуты — подозрительно.</summary>
+    /// <summary>No data for over a minute is suspicious.</summary>
     public static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(1);
 
-    /// <summary>Дольше пяти минут — считаем сервер недоступным.</summary>
+    /// <summary>Over five minutes and the machine counts as unreachable.</summary>
     public static readonly TimeSpan OfflineAfter = TimeSpan.FromMinutes(5);
 
     /// <summary>
-    /// Состояние машины по свежести её данных. Пороги можно передать явно — их берут
-    /// из настроек, чтобы экран парка и оповещения о пропаже судили по одной и той же
-    /// границе. Без аргументов используются значения по умолчанию.
+    /// Machine health from the age of its data. The thresholds can be passed explicitly —
+    /// they come from settings, so the fleet screen and the availability alerts judge by the
+    /// same boundary. Without arguments the defaults above apply.
     /// </summary>
     public static ServerHealth FromLastSeen(
         DateTime? lastSeenUtc,

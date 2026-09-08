@@ -95,7 +95,7 @@
 </div>
 
 @code {
-    /// <summary>Машина, чью историю показываем. Приходит из адреса /servers/{guid}/history.</summary>
+    /// <summary>The machine whose history is shown. Comes from the /servers/{guid}/history address.</summary>
     [Parameter]
     public Guid PublicId { get; set; }
 
@@ -114,8 +114,8 @@
 
     private bool IsDefaultSort => sortBy == "timestamp" && sortDir == "desc";
 
-    // Не OnInitializedAsync: при переходе между машинами меняется только параметр
-    // маршрута, а компонент Blazor переиспользует.
+    // Not OnInitializedAsync: moving between machines changes only the route parameter,
+    // and Blazor reuses the component.
     protected override async Task OnParametersSetAsync()
     {
         if (loadedId == PublicId)

@@ -5,13 +5,14 @@ using ServerMonitor.Infrastructure.Agents;
 namespace ServerMonitor.Api.Auth;
 
 /// <summary>
-/// Требует заголовок <c>X-Service-Key</c>, совпадающий с настройкой <c>Api:ServiceKey</c>.
+/// Requires an <c>X-Service-Key</c> header matching the <c>Api:ServiceKey</c> setting.
 /// </summary>
 /// <remarks>
-/// Это защита для <b>серверного клиента</b> — веб-приложения, которое ходит в API от своего
-/// имени. Ключ агента (<c>X-Api-Key</c>) намеренно другой заголовок: он отвечает на вопрос
-/// «какая это машина», а служебный — «это наш веб». Один заголовок для двух смыслов заставил
-/// бы обработчик гадать, а гадание в проверке доступа — плохая идея.
+/// This protects the API from everyone except its <b>server-side client</b> — the web app,
+/// which calls the API on its own behalf. The agent key (<c>X-Api-Key</c>) is deliberately a
+/// different header: it answers "which machine is this", while the service key answers "is
+/// this our web app". One header for two meanings would make the handler guess, and guessing
+/// in an access check is a bad idea.
 /// </remarks>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public sealed class RequireServiceKeyAttribute : Attribute, IAuthorizationFilter
@@ -28,8 +29,8 @@ public sealed class RequireServiceKeyAttribute : Attribute, IAuthorizationFilter
 
         if (string.IsNullOrWhiteSpace(expected))
         {
-            // Незаданный секрет означает «никого не пускать», а не «пускать всех». Обратное
-            // поведение — классический способ развернуть систему и молча оставить её открытой.
+            // An unset secret means "let nobody in", not "let everybody in". The opposite
+            // behaviour is the classic way to deploy a system and quietly leave it open.
             logger.LogError("Api:ServiceKey is not configured; refusing every request that needs it.");
 
             context.Result = new ObjectResult("Service key is not configured on the server.")

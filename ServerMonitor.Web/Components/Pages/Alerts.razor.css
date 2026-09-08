@@ -1,4 +1,4 @@
-.alerts-page {
+﻿.alerts-page {
     max-width: 900px;
     margin: 0 auto;
     padding: 36px 32px 48px;
@@ -52,7 +52,7 @@
     to { transform: rotate(360deg); }
 }
 
-/* Журнал событий: вертикальная ось + узлы */
+/* Event log: a vertical axis with nodes along it */
 .alerts-list {
     display: flex;
     flex-direction: column;
@@ -189,7 +189,7 @@
     color: var(--accent);
 }
 
-/* Имя машины в общем списке: без него событие ни к чему не привязано. */
+/* The machine name in the shared list: without it the event is attached to nothing. */
 .alert-server {
     font-family: var(--font-mono);
     color: var(--text);

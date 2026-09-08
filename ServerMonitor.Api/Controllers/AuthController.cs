@@ -6,15 +6,15 @@ using ServerMonitor.Infrastructure.Auth;
 namespace ServerMonitor.Api.Controllers;
 
 /// <summary>
-/// Проверка учётных данных и управление учётками. Сессий здесь нет: их держит веб-приложение
-/// своим cookie, а API только отвечает «пара верна» или «нет».
+/// Credential checking and account management. There are no sessions here: the web app holds
+/// those in its cookie, and the API only answers whether a pair is valid.
 /// </summary>
 [ApiController]
 [Route("api/auth")]
 [RequireServiceKey]
 public class AuthController : ControllerBase
 {
-    /// <summary>Минимальная длина пароля. Восемь — не идеал, но заметно лучше умолчания «никакой».</summary>
+    /// <summary>Minimum password length. Eight is no ideal, but far better than no minimum at all.</summary>
     private const int MinPasswordLength = 8;
 
     private readonly UserService _users;
@@ -32,13 +32,13 @@ public class AuthController : ControllerBase
         return Ok(new AuthStateDto { HasUsers = await _users.AnyUsersAsync(cancellationToken) });
     }
 
-    /// <summary>Создаёт первую учётку. Работает, только пока таблица пуста.</summary>
+    /// <summary>Creates the first account. Works only while the table is empty.</summary>
     [HttpPost("setup")]
     public async Task<ActionResult<UserDto>> Setup(
         [FromBody] CreateUserRequest request,
         CancellationToken cancellationToken)
     {
-        // Без этой проверки эндпоинт был бы открытой регистрацией администратора.
+        // Without this check the endpoint would be open registration for an administrator.
         if (await _users.AnyUsersAsync(cancellationToken))
         {
             _logger.LogWarning("Setup attempted after the first account already exists.");
@@ -72,8 +72,8 @@ public class AuthController : ControllerBase
 
         if (!result.Succeeded)
         {
-            // Один и тот же ответ на все причины отказа: подробности выдали бы, какие логины
-            // существуют и не заблокирован ли перебор. Настоящая причина — в журнале.
+            // One answer for every reason to refuse: details would reveal which logins exist
+            // and whether the throttle is engaged. The real reason goes to the log.
             return Unauthorized();
         }
 
@@ -116,8 +116,8 @@ public class AuthController : ControllerBase
     [HttpDelete("users/{id:int}")]
     public async Task<IActionResult> DeleteUser(int id, CancellationToken cancellationToken)
     {
-        // Отказ означает «это последняя учётка» либо «такой нет» — удалять последнюю нельзя,
-        // иначе войти будет некому.
+        // A refusal means either "this is the last account" or "no such account" — the last
+        // one cannot go, or there would be nobody left who could sign in.
         return await _users.DeleteAsync(id, cancellationToken)
             ? NoContent()
             : BadRequest("Cannot delete this account. The last remaining account must stay.");

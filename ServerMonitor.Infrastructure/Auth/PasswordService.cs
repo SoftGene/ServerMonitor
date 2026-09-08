@@ -1,36 +1,36 @@
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using ServerMonitor.Domain.Entities;
 
 namespace ServerMonitor.Infrastructure.Auth;
 
-/// <summary>Результат проверки пароля.</summary>
+/// <summary>The outcome of verifying a password.</summary>
 public enum PasswordVerification
 {
     Failed,
     Success,
 
     /// <summary>
-    /// Пароль верный, но хеш сделан по устаревшим параметрам. Повод молча перезаписать его
-    /// новым — пользователь ничего не заметит, а стойкость подрастёт.
+    /// The password is correct but its hash was made with outdated parameters. Reason enough
+    /// to quietly rewrite it — the user notices nothing and the strength goes up.
     /// </summary>
     SuccessRehashNeeded
 }
 
 /// <summary>
-/// Хеширование паролей поверх <see cref="PasswordHasher{TUser}"/> из ASP.NET Core.
+/// Password hashing on top of <see cref="PasswordHasher{TUser}"/> from ASP.NET Core.
 /// </summary>
 /// <remarks>
-/// Здесь нужен намеренно <b>медленный</b> хеш, в отличие от ключей агентов (глава 10 гайда):
-/// ключ — 32 случайных байта, словаря вероятных значений не существует, а пароль придумывает
-/// человек, и перебор по словарю работает. PBKDF2 с десятками тысяч итераций делает такой
-/// перебор непрактичным.
+/// A deliberately <b>slow</b> hash is what is needed here, unlike the agent keys: a key is 32
+/// random bytes with no dictionary of likely values to try, whereas a password is chosen by a
+/// person and a dictionary attack works. PBKDF2 with tens of thousands of iterations makes
+/// that attack impractical.
 ///
-/// Своя реализация поверх Rfc2898DeriveBytes выглядит несложной, но у готового хешера есть
-/// три вещи, которые легко забыть: случайная соль на каждый пароль, версия формата внутри
-/// самого хеша и признак «пароль верный, но параметры устарели». Последнее и есть встроенный
-/// путь миграции на более стойкие настройки без сброса паролей.
+/// Writing it by hand over Rfc2898DeriveBytes looks simple enough, but the ready-made hasher
+/// does three things that are easy to forget: a fresh salt per password, a format version
+/// stored inside the hash itself, and a "correct but outdated" result. The last of these is
+/// the built-in path to stronger settings without resetting anyone's password.
 ///
-/// Обёртка нужна, чтобы остальной код не знал ни про ASP.NET Identity, ни про тип-параметр.
+/// The wrapper exists so the rest of the code knows about neither ASP.NET Identity nor its type parameter.
 /// </remarks>
 public class PasswordService
 {
@@ -57,8 +57,8 @@ public class PasswordService
         }
         catch (FormatException)
         {
-            // В колонке оказался не хеш — например, после ручной правки базы. Это отказ во
-            // входе, а не повод уронить приложение.
+            // The column holds something that is not a hash — after a manual edit of the
+            // database, say. That is a failed login, not a reason to bring the app down.
             return PasswordVerification.Failed;
         }
     }

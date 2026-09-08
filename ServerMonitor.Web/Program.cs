@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.Cookies;
+﻿using Microsoft.AspNetCore.Authentication.Cookies;
 using ServerMonitor.Web.Components;
 using ServerMonitor.Web.Endpoints;
 using ServerMonitor.Web.Services;
@@ -13,9 +13,9 @@ builder.Services.AddRazorComponents()
 var baseUrl = builder.Configuration["ApiSettings:BaseUrl"]
     ?? throw new InvalidOperationException("ApiSettings:BaseUrl is not configured.");
 
-// Служебный ключ. Без него API не ответит ни на один запрос чтения, поэтому проверяем
-// настройку при старте: лучше не запуститься с внятным сообщением, чем показывать
-// пользователю 401 на каждой странице.
+// The service key. Without it the API answers no read request at all, so the setting is
+// checked at startup: failing to start with a clear message beats showing the user a 401 on
+// every page.
 var serviceKey = builder.Configuration["ApiSettings:ServiceKey"];
 
 if (string.IsNullOrWhiteSpace(serviceKey))
@@ -39,8 +39,8 @@ builder.Services.AddHttpClient<AuthApiClient>(client =>
     client.DefaultRequestHeaders.Add("X-Service-Key", serviceKey);
 });
 
-// Сессия человека живёт в cookie. Blazor Server и так держит серверное состояние, так что
-// токен в браузере ничего бы не упростил, зато добавил бы хранение и обновление.
+// A person's session lives in a cookie. Blazor Server already keeps state on the server, so
+// a token in the browser would simplify nothing while adding storage and refresh to manage.
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -70,8 +70,8 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
-// Порядок обязателен: сначала выяснить, кто пришёл, потом решить, пускать ли, и только
-// затем отдавать страницы.
+// The order matters: first work out who arrived, then decide whether to let them in, and
+// only then serve the pages.
 app.UseAuthentication();
 app.UseAuthorization();
 
