@@ -3,6 +3,7 @@
 @using ServerMonitor.Web.Models
 @using ServerMonitor.Web.Services
 @inject MetricsApiClient ApiClient
+@inject AuthApiClient AuthClient
 
 <PageTitle>Settings · ServerML</PageTitle>
 
@@ -92,6 +93,56 @@
                 </div>
             </div>
 
+            <div class="setting-section">
+                <h2>Accounts</h2>
+                <p class="section-hint">Everyone signs in with their own name and password</p>
+
+                @if (accounts is null)
+                {
+                    <p class="row-hint">Loading…</p>
+                }
+                else
+                {
+                    <div class="account-list">
+                        @foreach (var account in accounts)
+                        {
+                            <div class="account-row">
+                                <div>
+                                    <span class="account-name">@account.Username</span>
+                                    @if (account.Username == CurrentUser)
+                                    {
+                                        <span class="account-tag">you</span>
+                                    }
+                                    <div class="row-hint">
+                                        @(account.LastLoginUtc is null
+                                            ? "never signed in"
+                                            : $"last seen {account.LastLoginUtc.Value.ToLocalTime():dd MMM, HH:mm}")
+                                    </div>
+                                </div>
+                                @* Себя удалить нельзя: это мгновенная потеря доступа к открытой странице.
+                                   Последнюю учётку не даёт удалить и сервер. *@
+                                @if (account.Username != CurrentUser && accounts.Count > 1)
+                                {
+                                    <button class="link-danger" @onclick="() => DeleteAccount(account)">Remove</button>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="account-add">
+                        <input class="threshold-input wide" placeholder="username" @bind="newUsername" />
+                        <input class="threshold-input wide" type="password" placeholder="password (8+)"
+                               value="@newPassword" @oninput="OnNewPasswordInput" />
+                        <button class="apply-btn" @onclick="AddAccount" disabled="@isSavingAccount">Add</button>
+                    </div>
+
+                    @if (accountMessage is not null)
+                    {
+                        <p class="save-message @(accountSuccess ? "success" : "error-msg")">@accountMessage</p>
+                    }
+                }
+            </div>
+
             <div class="settings-footer">
                 @if (saveMessage is not null)
                 {
@@ -106,6 +157,17 @@
 </div>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private List<AccountSummary>? accounts;
+    private string? CurrentUser;
+    private string newUsername = string.Empty;
+    private string newPassword = string.Empty;
+    private string? accountMessage;
+    private bool accountSuccess;
+    private bool isSavingAccount;
+
     private AppSettings? settings;
     private string? loadError;
     private string? saveMessage;
@@ -114,14 +176,51 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (AuthState is not null)
+        {
+            CurrentUser = (await AuthState).User.Identity?.Name;
+        }
+
         try
         {
             settings = await ApiClient.GetSettingsAsync();
+            accounts = await AuthClient.ListUsersAsync();
         }
         catch (Exception ex)
         {
             loadError = ex.Message;
         }
+    }
+
+    private void OnNewPasswordInput(ChangeEventArgs e) =>
+        newPassword = e.Value?.ToString() ?? string.Empty;
+
+    private async Task AddAccount()
+    {
+        isSavingAccount = true;
+        accountMessage = null;
+
+        var problem = await AuthClient.CreateUserAsync(newUsername.Trim(), newPassword);
+
+        isSavingAccount = false;
+        accountSuccess = problem is null;
+        accountMessage = problem ?? $"Account {newUsername.Trim()} created.";
+
+        if (problem is null)
+        {
+            newUsername = string.Empty;
+            newPassword = string.Empty;
+            accounts = await AuthClient.ListUsersAsync();
+        }
+    }
+
+    private async Task DeleteAccount(AccountSummary account)
+    {
+        var problem = await AuthClient.DeleteUserAsync(account.Id);
+
+        accountSuccess = problem is null;
+        accountMessage = problem ?? $"Account {account.Username} removed.";
+        accounts = await AuthClient.ListUsersAsync();
     }
 
     private async Task Save()
