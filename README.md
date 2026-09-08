@@ -1,5 +1,7 @@
 # ServerMonitor
 
+[![build](https://github.com/SoftGene/ServerMonitor/actions/workflows/build.yml/badge.svg)](https://github.com/SoftGene/ServerMonitor/actions/workflows/build.yml)
+
 Self-hosted monitoring for a small fleet of machines. A lightweight agent runs on every server
 you want to watch and pushes CPU, memory, disk and uptime readings to a central API; a Blazor
 dashboard shows the fleet, and a Telegram bot reports when a threshold is crossed.
