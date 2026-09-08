@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using ServerMonitor.Domain.Entities;
 
 namespace ServerMonitor.Infrastructure.Data;
@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<MetricSnapshot> MetricSnapshots => Set<MetricSnapshot>();
     public DbSet<Alert> Alerts => Set<Alert>();
     public DbSet<AppSettings> AppSettings => Set<AppSettings>();
+    public DbSet<User> Users => Set<User>();
     public DbSet<Server> Servers => Set<Server>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -67,6 +68,13 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(a => a.ServerId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            // Уникальность имени — на уровне базы, а не только проверкой в коде: две
+            // одновременные регистрации иначе прошли бы обе.
+            entity.HasIndex(u => u.Username).IsUnique();
         });
 
         modelBuilder.Entity<AppSettings>().HasData(new AppSettings
