@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ServerMonitor.Api.Auth;
 using ServerMonitor.Api.Dtos;
 using ServerMonitor.Domain.Entities;
 using ServerMonitor.Infrastructure.Data;
@@ -8,6 +9,7 @@ namespace ServerMonitor.Api.Controllers;
 
 [ApiController]
 [Route("api/servers")]
+[RequireServiceKey]
 public class ServersController : ControllerBase
 {
     /// <summary>Сколько последних замеров отдавать на спарклайн в строке парка.</summary>

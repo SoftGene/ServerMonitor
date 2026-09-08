@@ -1,5 +1,6 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ServerMonitor.Api.Auth;
 using ServerMonitor.Api.Dtos;
 using ServerMonitor.Domain.Entities;
 using ServerMonitor.Infrastructure.Data;
@@ -12,6 +13,7 @@ namespace ServerMonitor.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[RequireServiceKey]
 public class AlertsController : ControllerBase
 {
     private readonly AppDbContext _dbContext;

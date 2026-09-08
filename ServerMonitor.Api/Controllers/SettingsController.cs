@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ServerMonitor.Api.Auth;
 using ServerMonitor.Api.Dtos;
 using ServerMonitor.Infrastructure.Data;
 
@@ -7,6 +8,7 @@ namespace ServerMonitor.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[RequireServiceKey]
 public class SettingsController : ControllerBase
 {
     private readonly AppDbContext _dbContext;

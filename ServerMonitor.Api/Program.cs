@@ -1,6 +1,7 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using ServerMonitor.Infrastructure.Alerting;
+using ServerMonitor.Infrastructure.Auth;
 using ServerMonitor.Infrastructure.Data;
 using ServerMonitor.Infrastructure.Monitoring;
 using ServerMonitor.Infrastructure.Telegram;
@@ -29,6 +30,12 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 // Метрики API больше не снимает: их присылают агенты через POST api/ingest.
+
+// Учётные записи. Троттлинг — singleton: счётчики промахов общие на всё приложение,
+// иначе каждый запрос начинал бы считать заново и защиты не было бы вовсе.
+builder.Services.AddSingleton<PasswordService>();
+builder.Services.AddSingleton<LoginThrottle>();
+builder.Services.AddScoped<UserService>();
 
 // Каналы доставки. Журнальный нужен всегда — он гарантирует, что событие где-то видно
 // даже без настроенного Telegram.

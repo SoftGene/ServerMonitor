@@ -1,7 +1,8 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServerMonitor.Domain.Entities;
 using ServerMonitor.Infrastructure.Data;
+using ServerMonitor.Api.Auth;
 using ServerMonitor.Api.Dtos;
 
 namespace ServerMonitor.Api.Controllers;
@@ -12,6 +13,7 @@ namespace ServerMonitor.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/servers/{publicId:guid}/metrics")]
+[RequireServiceKey]
 public class MetricsController : ControllerBase
 {
     private readonly AppDbContext _dbContext;
