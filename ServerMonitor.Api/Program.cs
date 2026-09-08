@@ -97,3 +97,8 @@ app.MapControllers();
 app.Run();
 
 return 0;
+
+// Top-level statements compile into an internal Program class, which WebApplicationFactory
+// cannot reach. Declaring it public here is the documented way to make the API host startable
+// from integration tests.
+public partial class Program;

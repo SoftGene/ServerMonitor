@@ -232,6 +232,20 @@ Other settings, all optional:
 dotnet test
 ```
 
+Two kinds, and the split is on purpose.
+
+**Unit tests** cover the decisions: when an alert should fire, when the backoff should give up,
+how a threshold is compared. These take no dependencies and run in milliseconds.
+
+**Integration tests** start the real API against a real PostgreSQL in a throwaway container
+([Testcontainers](https://testcontainers.com/)) and talk to it over HTTP. They cover what a unit
+test structurally cannot see, because none of it exists in a unit test: foreign keys, cascade
+deletes, unique indexes, the service-key filter, the order of middleware. Both of the defects
+this project shipped silently were of exactly that kind — correct C# that the database rejected.
+
+Docker has to be running for those; without it they fail rather than skip, which is the honest
+outcome. The container is shared by the whole collection and the suite finishes in a few seconds.
+
 Two collector tests read real `/proc` and take a second of wall time, so they are opt-in:
 
 ```bash
