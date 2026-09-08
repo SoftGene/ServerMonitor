@@ -1,0 +1,17 @@
+# Build output and tooling state. Without this the build context carries hundreds of megabytes
+# and risks baking someone else's artefacts into the image.
+**/bin/
+**/obj/
+.vs/
+.git/
+.github/
+.claude/
+.impeccable/
+
+# Local secrets and developer files never belong in an image.
+.env
+**/*.user
+**/appsettings.Development.json
+
+docs/
+*.md

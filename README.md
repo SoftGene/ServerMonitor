@@ -30,6 +30,8 @@ Built as a learning project, then taken far enough to actually run on my own ser
   from the server with a console command.
 - **Runs on Linux and Windows.** Readings come from `/proc` on Linux and from Win32 API calls
   through P/Invoke on Windows.
+- **Ships as containers.** `docker compose up -d` brings up the database, the API and the
+  dashboard, and exposes `/healthz` for an external uptime check.
 
 ### Fleet
 
@@ -78,7 +80,42 @@ Telegram.Bot
 
 ---
 
-## Running it
+## Quick start
+
+The whole server — database, API and dashboard — in one command. Docker is the only
+prerequisite.
+
+```bash
+cp .env.example .env
+```
+
+Fill in the three secrets it asks for, generating the two random ones with:
+
+```bash
+openssl rand -hex 32
+```
+
+Then:
+
+```bash
+docker compose up -d
+```
+
+The dashboard is at `http://localhost:5298`. The first visit asks you to create an account;
+registration closes afterwards. Migrations are applied automatically on startup, so there is no
+separate database step.
+
+To watch a machine, install the agent on it — see [Adding a machine](#adding-a-machine).
+
+> The agent is deliberately not part of the compose file. In a container it would measure the
+> container rather than the host: memory capped by the cgroup, disk being an image layer. The
+> numbers would look plausible and be wrong.
+
+---
+
+## Running from source
+
+For working on the code rather than just running it.
 
 ### Prerequisites
 
@@ -94,7 +131,7 @@ cp .env.example .env
 Put a password in `.env`, then:
 
 ```bash
-docker compose up -d
+docker compose up -d postgres
 ```
 
 ### 2. Secrets
@@ -114,6 +151,14 @@ openssl rand -hex 32 | tr -d '\r\n'
 
 ```bash
 dotnet user-secrets set "Agents:EnrollmentToken" "<the token>" --project ServerMonitor.Api
+```
+
+The API and the web app also share a service key, without which the API answers no read
+request:
+
+```bash
+dotnet user-secrets set "Api:ServiceKey" "<another random string>" --project ServerMonitor.Api
+dotnet user-secrets set "ApiSettings:ServiceKey" "<the same string>" --project ServerMonitor.Web
 ```
 
 Telegram is optional. Without it the bot stays disabled:
@@ -215,12 +260,11 @@ production software yet, and the gaps are deliberate rather than unknown:
 - **Data is kept forever.** A reading every five seconds adds up; there is no retention policy.
 - **The agent's buffer is in memory**, so a restart during an outage loses what it held.
 - **Nothing watches the monitor itself.** If the central API dies, no alert goes out — a
-  system cannot report its own death. That needs an external check against `/healthz`, which
-  is part of the packaging stage.
+  system cannot report its own death. `/healthz` is there for an external uptime service to
+  poll; pointing one at it is left to whoever deploys this.
 - **One offline threshold for the whole fleet**, and alerts have no severity levels.
 
-Roadmap, in order: authentication → packaging (Docker images, install script, `/healthz`) →
-retention.
+Roadmap: data retention, then whatever running it for real turns up.
 
 ---
 
