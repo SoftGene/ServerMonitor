@@ -228,6 +228,32 @@ Other settings, all optional:
 
 ---
 
+## How long data is kept
+
+A reading every five seconds per machine is about seventeen thousand rows a day each. By default
+the server keeps **30 days** and deletes the rest on a schedule.
+
+| Setting | Default | Meaning |
+|---------|---------|---------|
+| `Retention__SnapshotDays` | `30` | Days of readings to keep. `0` keeps everything |
+| `Retention__SweepIntervalHours` | `6` | How often the sweep runs |
+| `Retention__BatchSize` | `10000` | Rows removed per statement |
+
+With Docker, set `RETENTION_DAYS` in `.env`.
+
+This is configuration rather than a control on the settings page, and that is deliberate. Changing
+an alert threshold is reversible — the old number can be typed back. Deleting three months of
+history is not, and a button that destroys data should not sit beside one that changes a number.
+It is also a question about disk, which belongs to whoever runs the instance rather than to
+whoever reads the graphs.
+
+`0` means "keep everything", never "everything is older than zero days". A setting that governs a
+destructive action reads, when it is missing or nonsensical, as the option that does nothing.
+
+Alerts are not swept. There are few of them, and they are the record of what actually happened.
+
+---
+
 ## Tests
 
 ```bash
@@ -275,14 +301,15 @@ production software yet, and the gaps are deliberate rather than unknown:
 - **The enrollment token never expires**, agent keys cannot be rotated, and neither can the
   service key without editing both configurations.
 - **Accounts have no roles**, and deleting one does not end a session that is already open.
-- **Data is kept forever.** A reading every five seconds adds up; there is no retention policy.
+- **Deleted history is not summarised first.** A real time-series database keeps hourly averages
+  after it drops the raw points; here an old reading is simply gone.
 - **The agent's buffer is in memory**, so a restart during an outage loses what it held.
 - **Nothing watches the monitor itself.** If the central API dies, no alert goes out — a
   system cannot report its own death. `/healthz` is there for an external uptime service to
   poll; pointing one at it is left to whoever deploys this.
 - **One offline threshold for the whole fleet**, and alerts have no severity levels.
 
-Roadmap: data retention, then whatever running it for real turns up.
+Roadmap: whatever running it for real turns up.
 
 ---
 

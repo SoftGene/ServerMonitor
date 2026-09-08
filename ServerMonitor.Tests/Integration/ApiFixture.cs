@@ -50,6 +50,14 @@ public class ApiFixture : IAsyncLifetime
                 // a test run should never try to reach Telegram.
                 builder.UseSetting("Telegram:BotToken", string.Empty);
                 builder.UseSetting("Telegram:ChatId", string.Empty);
+
+                // A short window and a small batch, so the retention tests can create "old"
+                // readings without dating them a month back and can force more than one batch
+                // with a manageable number of rows. The background sweep waits a minute before
+                // its first pass, which is far longer than the whole suite takes, so it never
+                // races a test.
+                builder.UseSetting("Retention:SnapshotDays", "7");
+                builder.UseSetting("Retention:BatchSize", "100");
             });
 
         // Forces the host to build, which is also what applies the migrations.
@@ -89,6 +97,16 @@ public class ApiFixture : IAsyncLifetime
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         return await action(dbContext);
+    }
+
+    /// <summary>Resolves a scoped service from the running host and hands it to the test.</summary>
+    public async Task<TResult> WithServiceAsync<TService, TResult>(Func<TService, Task<TResult>> action)
+        where TService : notnull
+    {
+        using var scope = _factory.Services.CreateScope();
+        var service = scope.ServiceProvider.GetRequiredService<TService>();
+
+        return await action(service);
     }
 
     /// <summary>

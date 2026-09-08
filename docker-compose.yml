@@ -36,6 +36,9 @@ services:
       # Optional. Leave empty and alerting still records every event in the journal.
       Telegram__BotToken: ${TELEGRAM_BOT_TOKEN:-}
       Telegram__ChatId: ${TELEGRAM_CHAT_ID:-}
+      # How long readings are kept. Belongs to whoever runs this rather than to the interface:
+      # a control that deletes months of history should not sit on a settings page.
+      Retention__SnapshotDays: ${RETENTION_DAYS:-30}
     ports:
       - "7212:8080"
     healthcheck:
