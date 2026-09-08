@@ -1,10 +1,18 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
+using ServerMonitor.Api.Commands;
 using ServerMonitor.Infrastructure.Alerting;
 using ServerMonitor.Infrastructure.Auth;
 using ServerMonitor.Infrastructure.Data;
 using ServerMonitor.Infrastructure.Monitoring;
 using ServerMonitor.Infrastructure.Telegram;
+
+// Разбираем команду ДО создания builder: тот скармливает args провайдеру конфигурации,
+// который на голом слове «reset-password» падает с FormatException.
+if (args is ["reset-password", var accountName])
+{
+    return await ResetPasswordCommand.RunAsync(accountName);
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -62,3 +70,5 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+return 0;
