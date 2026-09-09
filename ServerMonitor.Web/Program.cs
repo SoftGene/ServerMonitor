@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authentication.Cookies;
+using ServerMonitor.Web.Auth;
 using ServerMonitor.Web.Components;
 using ServerMonitor.Web.Endpoints;
 using ServerMonitor.Web.Services;
@@ -50,6 +51,11 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.SlidingExpiration = true;
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
+
+        // A signed cookie is otherwise impossible to revoke: deleting an account would leave the
+        // browser holding it signed in for the full week above. This re-checks with the API on an
+        // interval and ends the session once the account's stamp no longer matches.
+        options.Events = SessionValidator.Build();
     });
 
 builder.Services.AddAuthorization();

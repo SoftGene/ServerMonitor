@@ -29,7 +29,8 @@ Built as a learning project, then taken far enough to actually run on my own ser
   of delivery, so events are recorded even with no Telegram configured.
 - **Requires a sign-in.** The UI is behind a username and password stored as a PBKDF2 hash, and
   the API answers nothing but agent ingest without a service key. A forgotten password is reset
-  from the server with a console command.
+  from the server with a console command, and doing so ends every session that account had open —
+  as does deleting the account.
 - **Runs on Linux and Windows.** Readings come from `/proc` on Linux and from Win32 API calls
   through P/Invoke on Windows.
 - **Keeps the shape of a year without keeping a year of rows.** Every finished hour is reduced
@@ -318,7 +319,8 @@ production software yet, and the gaps are deliberate rather than unknown:
 
 - **The enrollment token never expires**, agent keys cannot be rotated, and neither can the
   service key without editing both configurations.
-- **Accounts have no roles**, and deleting one does not end a session that is already open.
+- **Accounts have no roles.** Every account can do everything, and splitting permissions is a
+  separate job worth doing once there is a reason for it.
 - **Summaries are hourly and that is the only resolution.** A real time-series database keeps
   several tiers — minutes, then hours, then days. Here there is one, so a two-year chart is
   17,000 points.

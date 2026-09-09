@@ -25,8 +25,9 @@ public class AuthApiClient
         return state?.HasUsers ?? false;
     }
 
-    /// <summary>Returns the name of whoever signed in, or null. The reason for a refusal stays inside.</summary>
-    public async Task<string?> LoginAsync(string username, string password, CancellationToken cancellationToken = default)
+    /// <summary>The name of whoever signed in, and the stamp that keeps their session alive.</summary>
+    /// <remarks>Null on refusal; the reason for it stays inside the API.</remarks>
+    public async Task<SignedInUser?> LoginAsync(string username, string password, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync(
             "api/auth/login",
@@ -42,7 +43,40 @@ public class AuthApiClient
 
         var result = await response.Content.ReadFromJsonAsync<LoginResponse>(cancellationToken);
 
-        return result?.Username;
+        return result is null ? null : new SignedInUser(result.Username, result.SecurityStamp);
+    }
+
+    /// <summary>
+    /// Whether a session started earlier is still valid.
+    /// </summary>
+    /// <remarks>
+    /// A network failure is answered with true on purpose. This runs on ordinary page requests,
+    /// and treating an unreachable API as "signed out" would log everyone out the moment the API
+    /// restarted — turning a brief outage into a fleet-wide sign-out. The check runs again in a
+    /// minute; a genuinely revoked session survives that much longer and no more.
+    /// </remarks>
+    public async Task<bool> IsSessionValidAsync(
+        string username,
+        string securityStamp,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(
+                "api/auth/validate",
+                new { username, securityStamp },
+                cancellationToken);
+
+            return response.StatusCode != HttpStatusCode.Unauthorized;
+        }
+        catch (HttpRequestException)
+        {
+            return true;
+        }
+        catch (TaskCanceledException)
+        {
+            return true;
+        }
     }
 
     /// <summary>Creates the first account. Returns an error message, or null on success.</summary>
@@ -94,5 +128,6 @@ public class AuthApiClient
     private sealed class LoginResponse
     {
         public string Username { get; set; } = string.Empty;
+        public string SecurityStamp { get; set; } = string.Empty;
     }
 }

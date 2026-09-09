@@ -77,7 +77,40 @@ public class AuthController : ControllerBase
             return Unauthorized();
         }
 
-        return Ok(new LoginResponse { Username = result.User!.Username });
+        return Ok(new LoginResponse
+        {
+            Username = result.User!.Username,
+            SecurityStamp = result.User.SecurityStamp
+        });
+    }
+
+    /// <summary>
+    /// Says whether a session started earlier is still valid.
+    /// </summary>
+    /// <remarks>
+    /// This is what turns a signed cookie back into something revocable. The cookie proves only
+    /// that this server issued it; it cannot know that the account was deleted an hour later, or
+    /// that its password was changed because it had leaked. The web app therefore re-asks, on an
+    /// interval, and stops accepting its own cookie when the answer changes.
+    /// <para>
+    /// The reply is deliberately the same for "no such account" and "wrong stamp" — the same rule
+    /// the login endpoint follows, for the same reason.
+    /// </para>
+    /// </remarks>
+    [HttpPost("validate")]
+    public async Task<IActionResult> ValidateSession(
+        [FromBody] ValidateSessionRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrEmpty(request.SecurityStamp))
+        {
+            return Unauthorized();
+        }
+
+        var valid = await _users.IsSessionValidAsync(
+            request.Username.Trim(), request.SecurityStamp, cancellationToken);
+
+        return valid ? Ok() : Unauthorized();
     }
 
     [HttpGet("users")]

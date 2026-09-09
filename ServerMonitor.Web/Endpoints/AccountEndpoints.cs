@@ -1,4 +1,5 @@
 ﻿using System.Security.Claims;
+using ServerMonitor.Web.Auth;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -54,14 +55,17 @@ public static class AccountEndpoints
             }
 
             var identity = new ClaimsIdentity(
-                [new Claim(ClaimTypes.Name, loggedInAs)],
+                [
+                    new Claim(ClaimTypes.Name, loggedInAs.Username),
+                    new Claim(SessionClaims.SecurityStamp, loggedInAs.SecurityStamp)
+                ],
                 CookieAuthenticationDefaults.AuthenticationScheme);
 
             await context.SignInAsync(
                 CookieAuthenticationDefaults.AuthenticationScheme,
                 new ClaimsPrincipal(identity));
 
-            logger.LogInformation("{Username} signed in.", loggedInAs);
+            logger.LogInformation("{Username} signed in.", loggedInAs.Username);
 
             return Results.Redirect(returnUrl);
         });
@@ -97,8 +101,21 @@ public static class AccountEndpoints
             }
 
             // The account exists now, so sign them straight in rather than asking twice in a row.
+            // The credentials go through the ordinary login to collect a security stamp: a session
+            // created here has to be as revocable as one created any other way, and skipping this
+            // would leave the very first account holding the one cookie nothing can end.
+            var loggedInAs = await authClient.LoginAsync(username, password);
+
+            if (loggedInAs is null)
+            {
+                return Results.Redirect("/login");
+            }
+
             var identity = new ClaimsIdentity(
-                [new Claim(ClaimTypes.Name, username)],
+                [
+                    new Claim(ClaimTypes.Name, loggedInAs.Username),
+                    new Claim(SessionClaims.SecurityStamp, loggedInAs.SecurityStamp)
+                ],
                 CookieAuthenticationDefaults.AuthenticationScheme);
 
             await context.SignInAsync(

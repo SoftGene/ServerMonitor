@@ -19,6 +19,23 @@ public class LoginRequest
 public class LoginResponse
 {
     public string Username { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The value the web app puts in its cookie and presents again to keep the session alive.
+    /// </summary>
+    /// <remarks>
+    /// Not a secret and not a credential: on its own it grants nothing, because every call that
+    /// accepts it already needs the service key. It exists so a signed cookie can be revoked,
+    /// which a signed cookie otherwise cannot be.
+    /// </remarks>
+    public string SecurityStamp { get; set; } = string.Empty;
+}
+
+/// <summary>Asks whether a session that started earlier should still be honoured.</summary>
+public class ValidateSessionRequest
+{
+    public string Username { get; set; } = string.Empty;
+    public string SecurityStamp { get; set; } = string.Empty;
 }
 
 public class CreateUserRequest
