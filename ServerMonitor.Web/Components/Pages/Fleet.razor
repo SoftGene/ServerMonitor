@@ -4,6 +4,7 @@
 @using System.Globalization
 @using ServerMonitor.Web.Models
 @using ServerMonitor.Web.Services
+@using ServerMonitor.Web.Presentation
 @inject MetricsApiClient ApiClient
 @implements IDisposable
 
@@ -229,28 +230,8 @@
         return builder.ToString();
     }
 
-    private static string LastSeen(ServerSummary server)
-    {
-        if (server.LastSeenUtc is null)
-        {
-            return "never";
-        }
-
-        var age = DateTime.UtcNow - server.LastSeenUtc.Value;
-
-        if (age < TimeSpan.Zero)
-        {
-            age = TimeSpan.Zero;
-        }
-
-        return age.TotalSeconds switch
-        {
-            < 60 => $"{(int)age.TotalSeconds}s ago",
-            < 3600 => $"{(int)age.TotalMinutes}m ago",
-            < 86400 => $"{(int)age.TotalHours}h ago",
-            _ => $"{(int)age.TotalDays}d ago"
-        };
-    }
+    private static string LastSeen(ServerSummary server) =>
+        MachineState.LastSeen(server.LastSeenUtc, DateTime.UtcNow);
 
     public void Dispose() => refreshTimer?.Dispose();
 }

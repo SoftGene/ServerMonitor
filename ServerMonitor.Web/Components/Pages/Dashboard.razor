@@ -4,6 +4,8 @@
 @using ServerMonitor.Web.Models
 @using ServerMonitor.Web.Services
 @using ServerMonitor.Web.Components.Shared
+@using ServerMonitor.Web.Presentation
+@using Microsoft.AspNetCore.Components.Web
 @inject MetricsApiClient ApiClient
 @inject NavigationManager Nav
 @implements IDisposable
@@ -14,18 +16,43 @@
     <header class="dash-header">
         <div>
             <a class="back-link" href="">← Fleet</a>
-            <h1>@(server?.Name ?? "Server")</h1>
+            @if (isRenaming)
+            {
+                <div class="rename-row">
+                    <input class="rename-input" @bind="draftName" @bind:event="oninput"
+                           @onkeydown="OnRenameKeyDown" maxlength="60" autofocus
+                           aria-label="Machine name" />
+                    <button class="rename-ok" @onclick="SaveNameAsync" disabled="@(!CanSaveName)">Save</button>
+                    <button class="rename-cancel" @onclick="CancelRename">Cancel</button>
+                </div>
+                @if (renameError is not null)
+                {
+                    <p class="rename-error">@renameError</p>
+                }
+            }
+            else
+            {
+                <h1 class="machine-name">
+                    @(server?.Name ?? "Server")
+                    @if (server is not null)
+                    {
+                        <button class="rename-btn" @onclick="StartRename" title="Rename this machine" aria-label="Rename this machine">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z" /></svg>
+                        </button>
+                    }
+                </h1>
+            }
             @if (status is not null)
             {
                 <p class="dash-subtitle">
-                    <span class="live-dot @(isPaused ? "paused" : "")"></span>
-                    @(isPaused ? "Paused" : "Live") · upd @status.TimeStampUtc.ToLocalTime().ToString("HH:mm:ss")<span class="term-cursor" aria-hidden="true"></span>
+                    <span class="live-dot @MachineState.DotClass(server?.Health)"></span>
+                    @MachineState.Label(server?.Health) · @Freshness@(isPaused ? " · paused" : "")<span class="term-cursor" aria-hidden="true"></span>
                 </p>
             }
         </div>
         <div class="header-actions">
-            <div class="cube-wrap" title="@(isPaused ? "Paused" : "Live")" aria-hidden="true">
-                <div class="cube @(isPaused ? "paused" : "")">
+            <div class="cube-wrap" title="@MachineState.Label(server?.Health)" aria-hidden="true">
+                <div class="cube @(IsFlowing ? "" : "paused")">
                     <span class="cf cf-1"></span><span class="cf cf-2"></span><span class="cf cf-3"></span>
                     <span class="cf cf-4"></span><span class="cf cf-5"></span><span class="cf cf-6"></span>
                 </div>
@@ -344,7 +371,85 @@
         isRefreshing = false;
     }
 
+    private bool isRenaming;
+    private string draftName = string.Empty;
+    private string? renameError;
+
+    /// <summary>The same rule the API enforces, so the button is not offered for a refusal.</summary>
+    private bool CanSaveName => draftName.Trim().Length is > 0 and <= 60;
+
+    private void StartRename()
+    {
+        draftName = server?.Name ?? string.Empty;
+        renameError = null;
+        isRenaming = true;
+    }
+
+    private void CancelRename()
+    {
+        isRenaming = false;
+        renameError = null;
+    }
+
+    private async Task OnRenameKeyDown(KeyboardEventArgs args)
+    {
+        // Enter saves and Escape abandons, because a one-field form that only responds to the
+        // mouse is a small irritation repeated every time.
+        if (args.Key == "Enter")
+        {
+            await SaveNameAsync();
+        }
+        else if (args.Key == "Escape")
+        {
+            CancelRename();
+        }
+    }
+
+    private async Task SaveNameAsync()
+    {
+        if (server is null || !CanSaveName)
+        {
+            return;
+        }
+
+        var name = draftName.Trim();
+
+        if (name == server.Name)
+        {
+            CancelRename();
+
+            return;
+        }
+
+        renameError = await ApiClient.RenameServerAsync(PublicId, name);
+
+        if (renameError is not null)
+        {
+            return;
+        }
+
+        // Shown at once rather than waiting for the next poll, which is up to five seconds away
+        // and would make the rename look like it had not worked.
+        server.Name = name;
+        isRenaming = false;
+    }
+
     private void TogglePause() => isPaused = !isPaused;
+
+    /// <summary>Readings are actually arriving: the machine is healthy and the page is polling.</summary>
+    private bool IsFlowing => !isPaused && MachineState.IsReporting(server?.Health);
+
+    /// <summary>
+    /// How current the numbers on screen are.
+    /// </summary>
+    /// <remarks>
+    /// A clock time is only meaningful while data keeps arriving. For a machine that has stopped,
+    /// "upd 18:12" invites the reader to assume it means today — so an age is shown instead, which
+    /// cannot be misread.
+    /// </remarks>
+    private string Freshness => MachineState.IsReporting(server?.Health)
+        ? $"upd {status!.TimeStampUtc.ToLocalTime():HH:mm:ss}"
+        : $"last seen {MachineState.LastSeen(server?.LastSeenUtc, DateTime.UtcNow)}";
 
     private void StartDelete() => isDeleting = true;
 
