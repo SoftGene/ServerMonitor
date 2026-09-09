@@ -3,11 +3,20 @@
 # commit list.
 name: build
 
+# Once for a branch push, once for a pull request — never both. Listing feature branches under
+# push as well ran every job twice while a PR was open: the same commit, the same result, two
+# entries in the checks list and twice the runner time.
 on:
   push:
-    branches: [master, 'feature/**']
-  pull_request:
     branches: [master]
+  pull_request:
+
+# Pushing three commits in a minute used to start three full runs and wait for all of them. Only
+# the newest matters, so the older ones are cancelled — except on master, where each commit's
+# result is a record worth keeping.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
   test:
