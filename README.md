@@ -222,6 +222,10 @@ On first run the agent exchanges the enrollment token for its own API key and wr
 `agent-state.json` next to the binary (mode `0600` on Unix). That file is what keeps a restart
 from registering the machine twice, so keep it.
 
+Readings it has not managed to deliver go to `agent-buffer.json` beside it, so an outage and a
+restart together are not the same as data loss. It holds no secrets, and deleting it costs only
+whatever had not been sent yet.
+
 Other settings, all optional:
 
 | Setting | Default | Meaning |
@@ -326,7 +330,8 @@ production software yet, and the gaps are deliberate rather than unknown:
   17,000 points.
 - **Nothing is partitioned.** At real volume old data is dropped by the partition rather than
   deleted row by row, which is instant and returns the disk immediately.
-- **The agent's buffer is in memory**, so a restart during an outage loses what it held.
+- **The buffer is bounded, so a long enough outage still drops readings.** It survives a restart
+  now, but an outage past the configured capacity discards the oldest to keep measuring.
 - **Nothing watches the monitor itself.** If the central API dies, no alert goes out — a
   system cannot report its own death. `/healthz` is there for an external uptime service to
   poll; pointing one at it is left to whoever deploys this.

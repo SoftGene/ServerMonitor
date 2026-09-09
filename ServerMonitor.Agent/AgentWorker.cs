@@ -15,13 +15,27 @@ public class AgentWorker : BackgroundService
     private readonly AgentOptions _options;
     private readonly ILogger<AgentWorker> _logger;
     private readonly MetricBuffer _buffer;
+    private readonly BufferStore _bufferStore;
     private readonly string _statePath;
+
+    /// <summary>
+    /// The shortest gap between two writes of the buffer to disk.
+    /// </summary>
+    /// <remarks>
+    /// Persisting on every reading would be a disk write every five seconds for a file that is
+    /// almost always empty, since a reachable server empties the buffer immediately. Persisting
+    /// only on shutdown would cover an orderly stop and nothing else — and the machine losing
+    /// power is exactly the case worth surviving. Half a minute costs little and bounds the loss
+    /// to the same half minute.
+    /// </remarks>
+    private static readonly TimeSpan MinimumSaveInterval = TimeSpan.FromSeconds(30);
 
     public AgentWorker(
         IMetricsCollector collector,
         AgentClient client,
         IOptions<AgentOptions> options,
-        ILogger<AgentWorker> logger)
+        ILogger<AgentWorker> logger,
+        ILogger<BufferStore> storeLogger)
     {
         _collector = collector;
         _client = client;
@@ -29,6 +43,8 @@ public class AgentWorker : BackgroundService
         _logger = logger;
         _buffer = new MetricBuffer(_options.BufferCapacity);
         _statePath = Path.Combine(AppContext.BaseDirectory, "agent-state.json");
+        _bufferStore = new BufferStore(
+            Path.Combine(AppContext.BaseDirectory, "agent-buffer.json"), storeLogger);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -41,7 +57,18 @@ public class AgentWorker : BackgroundService
             return;
         }
 
+        var restored = await _bufferStore.LoadAsync(stoppingToken);
+
+        if (restored.Count > 0)
+        {
+            _buffer.Restore(restored);
+
+            _logger.LogInformation(
+                "Recovered {Count} readings the previous run had not delivered.", restored.Count);
+        }
+
         var retryDelay = _options.CollectInterval;
+        var lastSavedUtc = DateTime.UtcNow;
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -89,6 +116,19 @@ public class AgentWorker : BackgroundService
                 ? _options.CollectInterval
                 : Min(retryDelay + retryDelay, _options.MaxRetryDelay);
 
+            // A delivered buffer is an empty one, and an empty buffer is no file: written
+            // immediately, because leaving a stale file behind would make the next start replay
+            // readings the server already has.
+            if (_buffer.Count == 0)
+            {
+                _bufferStore.Delete();
+            }
+            else if (DateTime.UtcNow - lastSavedUtc >= MinimumSaveInterval)
+            {
+                await _bufferStore.SaveAsync(_buffer.Snapshot(), CancellationToken.None);
+                lastSavedUtc = DateTime.UtcNow;
+            }
+
             try
             {
                 // Jitter the wait itself rather than the base: feeding a jittered value back
@@ -99,6 +139,18 @@ public class AgentWorker : BackgroundService
             {
                 break;
             }
+        }
+
+        // On the way out, keep whatever is left. The token is already cancelled by now, so the
+        // write is given an uncancelled one — passing the cancelled token would abort the very
+        // save this exists to perform.
+        var remaining = _buffer.Snapshot();
+
+        if (remaining.Count > 0)
+        {
+            await _bufferStore.SaveAsync(remaining, CancellationToken.None);
+
+            _logger.LogInformation("Kept {Count} undelivered readings for the next run.", remaining.Count);
         }
 
         _logger.LogInformation("Agent stopped.");
