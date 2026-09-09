@@ -118,6 +118,59 @@ public class MetricsController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Hourly summaries for the last N days — the view that outlives the raw readings.
+    /// </summary>
+    /// <remarks>
+    /// Reads the summary table only, never the raw one. That is what lets this answer for a year
+    /// ago as cheaply as for yesterday: a year of hours is 8,760 rows, while a year of readings
+    /// would be six million. It also means the most recent hour is missing until the pass that
+    /// builds it has run, which is why the interface shows raw history for short ranges and this
+    /// for long ones.
+    /// </remarks>
+    [HttpGet("trend")]
+    public async Task<ActionResult<IEnumerable<MetricTrendItemDto>>> GetTrend(
+        Guid publicId,
+        [FromQuery] int days = 30,
+        CancellationToken cancellationToken = default)
+    {
+        if (days < 1 || days > 730)
+        {
+            return BadRequest("Days must be between 1 and 730.");
+        }
+
+        var serverId = await ResolveServerIdAsync(publicId, cancellationToken);
+
+        if (serverId is null)
+        {
+            return NotFound("Server not found.");
+        }
+
+        var fromUtc = DateTime.UtcNow.AddDays(-days);
+
+        var items = await _dbContext.MetricRollups
+            .AsNoTracking()
+            .Where(r => r.ServerId == serverId && r.HourUtc >= fromUtc)
+            // Ascending: this is drawn as a line, and a chart reads left to right. The raw
+            // history endpoint sorts the other way because it takes the newest N and is read as
+            // a list.
+            .OrderBy(r => r.HourUtc)
+            .Select(r => new MetricTrendItemDto
+            {
+                HourUtc = r.HourUtc,
+                SampleCount = r.SampleCount,
+                CpuAvgPercent = Math.Round(r.CpuAvgPercent, 1),
+                CpuMaxPercent = Math.Round(r.CpuMaxPercent, 1),
+                MemoryAvgPercent = Math.Round(r.MemoryAvgPercent, 1),
+                MemoryMaxPercent = Math.Round(r.MemoryMaxPercent, 1),
+                DiskAvgPercent = Math.Round(r.DiskAvgPercent, 1),
+                DiskMaxPercent = Math.Round(r.DiskMaxPercent, 1)
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(items);
+    }
+
     [HttpGet("history/paged")]
     public async Task<ActionResult<PagedResult<MetricHistoryItemDto>>> GetHistoryPaged(
         Guid publicId,

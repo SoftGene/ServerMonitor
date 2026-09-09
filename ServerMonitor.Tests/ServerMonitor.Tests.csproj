@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -29,6 +29,10 @@
     <ProjectReference Include="..\ServerMonitor.Collection\ServerMonitor.Collection.csproj" />
     <ProjectReference Include="..\ServerMonitor.Agent\ServerMonitor.Agent.csproj" />
     <ProjectReference Include="..\ServerMonitor.Api\ServerMonitor.Api.csproj" />
+    <!-- Aliased because both hosts compile a Program class out of their top-level
+         statements, and referencing both makes the name ambiguous. The alias keeps the
+         Web assembly out of the global namespace; the tests that need it say so. -->
+    <ProjectReference Include="..\ServerMonitor.Web\ServerMonitor.Web.csproj" Aliases="WebApp" />
   </ItemGroup>
 
 </Project>

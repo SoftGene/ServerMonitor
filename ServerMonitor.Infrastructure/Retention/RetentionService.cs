@@ -31,21 +31,26 @@ public class RetentionService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!_options.IsEnabled)
+        if (_options.IsEnabled)
+        {
+            _logger.LogInformation(
+                "Retention service started; keeping {Days} days of readings, sweeping every {Hours} h.",
+                _options.SnapshotDays,
+                _options.SweepInterval.TotalHours);
+        }
+        else
         {
             // Said out loud on purpose. A system that quietly keeps everything forever looks
             // exactly like a system with a retention policy, right up until the disk fills.
+            //
+            // The service keeps running regardless: summarising the hours is worth doing whether
+            // or not anything is being deleted, and switching deletion off should not silently
+            // switch off the long-term history as well.
             _logger.LogWarning(
-                "Retention is disabled (Retention:SnapshotDays is {Days}); readings are kept forever.",
+                "Retention is disabled (Retention:SnapshotDays is {Days}); raw readings are kept "
+                + "forever, and only the hourly summaries are still being built.",
                 _options.SnapshotDays);
-
-            return;
         }
-
-        _logger.LogInformation(
-            "Retention service started; keeping {Days} days of readings, sweeping every {Hours} h.",
-            _options.SnapshotDays,
-            _options.SweepInterval.TotalHours);
 
         try
         {
@@ -55,10 +60,7 @@ public class RetentionService : BackgroundService
             {
                 try
                 {
-                    using var scope = _scopeFactory.CreateScope();
-                    var sweeper = scope.ServiceProvider.GetRequiredService<SnapshotSweeper>();
-
-                    await sweeper.SweepAsync(DateTime.UtcNow, stoppingToken);
+                    await RunOnceAsync(stoppingToken);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -66,10 +68,10 @@ public class RetentionService : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    // One failed sweep must not end the service: the next one deletes what this
-                    // one did not, because the work is defined by the cutoff and not by progress
-                    // kept anywhere.
-                    _logger.LogError(ex, "Error during the retention sweep.");
+                    // One failed pass must not end the service: the next one does what this one
+                    // did not, because the work is defined by the cutoff and by which hours are
+                    // already summarised, not by progress kept anywhere.
+                    _logger.LogError(ex, "Error during the retention pass.");
                 }
 
                 await Task.Delay(_options.SweepInterval, stoppingToken);
@@ -81,5 +83,32 @@ public class RetentionService : BackgroundService
         }
 
         _logger.LogInformation("Retention service stopped.");
+    }
+
+    /// <summary>
+    /// One pass: summarise the finished hours, then delete what has aged out.
+    /// </summary>
+    /// <remarks>
+    /// The order is the whole design and it is not interchangeable. Deleting first destroys the
+    /// readings the summary would have been built from, and it does so without any sign of
+    /// trouble: rows that were never summarised delete exactly as successfully as rows that were.
+    /// A single scope covers both, so the summary is committed before the delete is even attempted.
+    /// </remarks>
+    private async Task RunOnceAsync(CancellationToken cancellationToken)
+    {
+        var nowUtc = DateTime.UtcNow;
+
+        using var scope = _scopeFactory.CreateScope();
+
+        var rollups = scope.ServiceProvider.GetRequiredService<RollupBuilder>();
+        await rollups.BuildAsync(nowUtc, cancellationToken);
+
+        if (!_options.IsEnabled)
+        {
+            return;
+        }
+
+        var sweeper = scope.ServiceProvider.GetRequiredService<SnapshotSweeper>();
+        await sweeper.SweepAsync(nowUtc, cancellationToken);
     }
 }

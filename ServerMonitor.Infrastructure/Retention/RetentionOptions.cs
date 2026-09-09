@@ -28,8 +28,13 @@ public class RetentionOptions
     /// </remarks>
     public int SnapshotDays { get; set; } = 30;
 
-    /// <summary>The pause between sweeps.</summary>
-    public int SweepIntervalHours { get; set; } = 6;
+    /// <summary>The pause between passes.</summary>
+    /// <remarks>
+    /// Hourly rather than something longer, because a pass also builds the hourly summaries that
+    /// the long-range view reads, and there is no reason for those to lag further behind than the
+    /// hour they cover. A pass with nothing to do costs two indexed queries that return nothing.
+    /// </remarks>
+    public int SweepIntervalHours { get; set; } = 1;
 
     /// <summary>
     /// How many rows one DELETE statement removes before starting another.

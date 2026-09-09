@@ -74,6 +74,17 @@ public class MetricsApiClient
         return items ?? new List<MetricHistoryItem>();
     }
 
+    public async Task<List<MetricTrendItem>> GetTrendAsync(
+        Guid serverId,
+        int days = 30,
+        CancellationToken cancellationToken = default)
+    {
+        var items = await _httpClient.GetFromJsonAsync<List<MetricTrendItem>>(
+            $"api/servers/{serverId}/metrics/trend?days={days}", cancellationToken);
+
+        return items ?? new List<MetricTrendItem>();
+    }
+
     public async Task<AppSettings?> GetSettingsAsync(CancellationToken cancellationToken = default)
     {
         return await _httpClient.GetFromJsonAsync<AppSettings>("api/settings", cancellationToken);

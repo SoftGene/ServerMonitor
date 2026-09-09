@@ -1,0 +1,206 @@
+@page "/servers/{PublicId:guid}/trend"
+@attribute [Authorize]
+@using ServerMonitor.Web.Models
+@using ServerMonitor.Web.Services
+@using ServerMonitor.Web.Charts
+@inject MetricsApiClient ApiClient
+
+<PageTitle>Trend · ServerML</PageTitle>
+
+<div class="trend-page">
+    <header class="page-header">
+        <div>
+            <a class="back-link" href="@($"servers/{PublicId}")">← @(serverName ?? "Server")</a>
+            <h1>Trend</h1>
+            <p class="page-sub">Hourly summaries — what remains after the raw readings age out</p>
+        </div>
+    </header>
+
+    <div class="filter-bar">
+        <div class="switch-group" role="group" aria-label="Range">
+            @foreach (var option in RangeOptions)
+            {
+                <button class="switch-btn @(days == option.Days ? "active" : "")"
+                        @onclick="() => SetRangeAsync(option.Days)">@option.Label</button>
+            }
+        </div>
+        <div class="switch-group" role="group" aria-label="Metric">
+            @foreach (var option in MetricOptions)
+            {
+                <button class="switch-btn @(metric == option.Key ? "active" : "")"
+                        @onclick="() => SetMetric(option.Key)">@option.Label</button>
+            }
+        </div>
+    </div>
+
+    @if (loadError is not null)
+    {
+        <div class="state-msg error">⚠ @loadError</div>
+    }
+    else if (items is null)
+    {
+        <div class="state-msg">Loading…</div>
+    }
+    else if (items.Count == 0)
+    {
+        <div class="state-msg">
+            No summaries for this range yet. They are built once an hour, so a machine that
+            registered a few minutes ago has none.
+        </div>
+    }
+    else
+    {
+        <div class="section-label"><span class="section-no">01</span>@CurrentMetricLabel over @RangeLabel</div>
+
+        <div class="chart-card">
+            <svg class="trend-chart" viewBox="0 0 1000 220" preserveAspectRatio="none"
+                 role="img" aria-label="@CurrentMetricLabel over @RangeLabel">
+                @foreach (var line in new[] { 25d, 50d, 75d })
+                {
+                    <line class="grid" x1="0" x2="1000" y1="@TrendChart.Num(TrendChart.Y(line))" y2="@TrendChart.Num(TrendChart.Y(line))" vector-effect="non-scaling-stroke" />
+                }
+
+                @foreach (var segment in segments)
+                {
+                    <polygon class="peak-area" points="@segment.Area" vector-effect="non-scaling-stroke" />
+                }
+                @foreach (var segment in segments)
+                {
+                    <polyline class="avg-line" points="@segment.Average" vector-effect="non-scaling-stroke" />
+                }
+            </svg>
+
+            <div class="chart-axis">
+                <span>@AxisLabel(items[0].HourUtc)</span>
+                <span>@AxisLabel(items[^1].HourUtc)</span>
+            </div>
+
+            <div class="chart-legend">
+                <span class="legend-item"><span class="swatch avg"></span>average per hour</span>
+                <span class="legend-item"><span class="swatch peak"></span>peak within the hour</span>
+            </div>
+        </div>
+
+        <div class="section-label"><span class="section-no">02</span>Over this range</div>
+        <div class="stat-row">
+            <div class="stat">
+                <span class="stat-label">Peak</span>
+                <span class="stat-value">@TrendChart.Num(items.Max(MaxOf))%</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Average</span>
+                <span class="stat-value">@TrendChart.Num(items.Average(AvgOf))%</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Hours covered</span>
+                <span class="stat-value">@items.Count</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Readings behind them</span>
+                <span class="stat-value">@items.Sum(i => (long)i.SampleCount).ToString("N0")</span>
+            </div>
+        </div>
+
+        <p class="chart-note">
+            Averaging hides spikes, so the peak of each hour is drawn beside its average. A gap in
+            the line is a gap in the data — hours the machine reported nothing are left empty
+            rather than bridged, because a straight line across an outage is a claim that nothing
+            happened during it.
+        </p>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid PublicId { get; set; }
+
+    private sealed record RangeOption(int Days, string Label);
+    private sealed record MetricOption(string Key, string Label);
+
+    private static readonly RangeOption[] RangeOptions =
+    [
+        new(7, "7d"),
+        new(30, "30d"),
+        new(90, "90d"),
+        new(365, "1y")
+    ];
+
+    private static readonly MetricOption[] MetricOptions =
+    [
+        new("cpu", "CPU"),
+        new("memory", "Memory"),
+        new("disk", "Disk")
+    ];
+
+    private List<MetricTrendItem>? items;
+    private List<TrendSegment> segments = [];
+    private string? serverName;
+    private string? loadError;
+    private int days = 30;
+    private string metric = "cpu";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            loadError = null;
+
+            var server = await ApiClient.GetServerAsync(PublicId);
+            serverName = server?.Name;
+
+            items = await ApiClient.GetTrendAsync(PublicId, days);
+            BuildSegments();
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+            items = null;
+        }
+    }
+
+    private async Task SetRangeAsync(int value)
+    {
+        days = value;
+        items = null;
+
+        await LoadAsync();
+    }
+
+    private void SetMetric(string key)
+    {
+        metric = key;
+        BuildSegments();
+    }
+
+    private double AvgOf(MetricTrendItem item) => metric switch
+    {
+        "memory" => item.MemoryAvgPercent,
+        "disk" => item.DiskAvgPercent,
+        _ => item.CpuAvgPercent
+    };
+
+    private double MaxOf(MetricTrendItem item) => metric switch
+    {
+        "memory" => item.MemoryMaxPercent,
+        "disk" => item.DiskMaxPercent,
+        _ => item.CpuMaxPercent
+    };
+
+    private void BuildSegments()
+    {
+        segments = items is null
+            ? []
+            : TrendChart.Build(items, i => i.HourUtc, AvgOf, MaxOf);
+    }
+
+    private string RangeLabel => RangeOptions.First(o => o.Days == days).Label;
+
+    private string CurrentMetricLabel => MetricOptions.First(o => o.Key == metric).Label;
+
+    private string AxisLabel(DateTime hourUtc) =>
+        hourUtc.ToLocalTime().ToString(days > 90 ? "dd MMM yyyy" : "dd MMM, HH:mm");
+}

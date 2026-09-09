@@ -61,6 +61,7 @@ builder.Services.AddHostedService<TelegramBotService>();
 
 // Old readings are deleted on a schedule. The sweeper is scoped because it needs a DbContext;
 // the hosted service that calls it is a singleton and opens a scope for each sweep.
+builder.Services.AddScoped<RollupBuilder>();
 builder.Services.AddScoped<SnapshotSweeper>();
 builder.Services.AddHostedService<RetentionService>();
 

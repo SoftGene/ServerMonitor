@@ -32,6 +32,9 @@ Built as a learning project, then taken far enough to actually run on my own ser
   from the server with a console command.
 - **Runs on Linux and Windows.** Readings come from `/proc` on Linux and from Win32 API calls
   through P/Invoke on Windows.
+- **Keeps the shape of a year without keeping a year of rows.** Every finished hour is reduced
+  to one summary row — average, peak and sample count — before the raw readings age out, so a
+  trend from months ago still reads while the table stops growing.
 - **Ships as containers.** `docker compose up -d` brings up the database, the API and the
   dashboard, and exposes `/healthz` for an external uptime check.
 
@@ -231,12 +234,26 @@ Other settings, all optional:
 ## How long data is kept
 
 A reading every five seconds per machine is about seventeen thousand rows a day each. By default
-the server keeps **30 days** and deletes the rest on a schedule.
+the server keeps **30 days** of them.
+
+Ageing out is not the same as being forgotten. Once an hour, every finished hour of readings is
+reduced to a single row — the average, the peak and how many readings it was built from — and only
+then is the raw data deleted. A year of those summaries is 8,760 rows per machine against six
+million, and the **Trend** page reads them, so a chart from ten months ago costs the same as one
+from yesterday.
+
+The order is the whole design, and it is not interchangeable: summarise, then delete. The other
+way round is silent, permanent loss, because deleting rows nothing summarised succeeds exactly as
+quietly as deleting rows something did.
+
+What that trade actually costs: a year ago you can see that memory sat near 80% all week and that
+one hour peaked at 97%. You cannot see the individual reading at 14:32 on that Tuesday. Detail is
+what gets old; shape is what stays useful.
 
 | Setting | Default | Meaning |
 |---------|---------|---------|
 | `Retention__SnapshotDays` | `30` | Days of readings to keep. `0` keeps everything |
-| `Retention__SweepIntervalHours` | `6` | How often the sweep runs |
+| `Retention__SweepIntervalHours` | `1` | How often summaries are built and old rows deleted |
 | `Retention__BatchSize` | `10000` | Rows removed per statement |
 
 With Docker, set `RETENTION_DAYS` in `.env`.
@@ -250,7 +267,8 @@ whoever reads the graphs.
 `0` means "keep everything", never "everything is older than zero days". A setting that governs a
 destructive action reads, when it is missing or nonsensical, as the option that does nothing.
 
-Alerts are not swept. There are few of them, and they are the record of what actually happened.
+Alerts are not swept, and neither are the hourly summaries. Both are small, and both are the
+record of what actually happened.
 
 ---
 
@@ -301,8 +319,11 @@ production software yet, and the gaps are deliberate rather than unknown:
 - **The enrollment token never expires**, agent keys cannot be rotated, and neither can the
   service key without editing both configurations.
 - **Accounts have no roles**, and deleting one does not end a session that is already open.
-- **Deleted history is not summarised first.** A real time-series database keeps hourly averages
-  after it drops the raw points; here an old reading is simply gone.
+- **Summaries are hourly and that is the only resolution.** A real time-series database keeps
+  several tiers — minutes, then hours, then days. Here there is one, so a two-year chart is
+  17,000 points.
+- **Nothing is partitioned.** At real volume old data is dropped by the partition rather than
+  deleted row by row, which is instant and returns the disk immediately.
 - **The agent's buffer is in memory**, so a restart during an outage loses what it held.
 - **Nothing watches the monitor itself.** If the central API dies, no alert goes out — a
   system cannot report its own death. `/healthz` is there for an external uptime service to
