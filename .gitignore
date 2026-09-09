@@ -372,3 +372,10 @@ SeverMonitor.slnLaunch.user
 # Written by the agent beside its binary: its own key, and readings not yet delivered.
 agent-state.json
 agent-buffer.json
+
+# Personal working material, kept on disk and out of the repository.
+# The guide is a study companion written for one reader; the specs and plans are
+# working notes, not documentation anyone else needs.
+.claude/
+docs/guide/
+docs/superpowers/

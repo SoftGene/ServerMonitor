@@ -328,17 +328,6 @@ SERVERMONITOR_RUN_COLLECTOR_TESTS=1 dotnet test
 
 ---
 
-## Documentation
-
-`docs/guide/` is a chapter-by-chapter walkthrough of this codebase — what every layer does and
-why it was built that way, down to language details. It is written in Russian, as a study
-companion rather than product documentation, and writing it is what surfaced most of the bugs
-that have since been fixed.
-
-`docs/superpowers/` holds the design specs and implementation plans each stage was built from.
-
----
-
 ## Status and limits
 
 It runs, it keeps history, and it has been watching a real machine for weeks. It is not
