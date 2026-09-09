@@ -277,6 +277,29 @@ record of what actually happened.
 
 ---
 
+## Rate limits
+
+Two endpoints accept a secret from a caller who has not proved anything yet, so both can be
+guessed at. Login already counts failures per username; nothing counted attempts at the enrollment
+token, which is a single shared value that never expires.
+
+| Setting | Default | Applies to |
+|---------|---------|------------|
+| `RateLimits__EnrollmentPerHour` | `10` | `POST /api/agents/register` |
+| `RateLimits__CredentialsPerMinute` | `20` | `POST /api/auth/login` |
+
+Partitioned by remote address, which is imperfect on purpose: one NAT shares a bucket and an
+attacker with many addresses gets many buckets. It still turns an unbounded guessing rate into a
+bounded one, and the per-username throttle covers the case it misses — a different username every
+attempt, which leaves every counter at one.
+
+Ingest is deliberately not limited. An agent already holds a key it was issued, and throttling it
+would only drop readings from machines that are behaving.
+
+Raise `EnrollmentPerHour` while rolling out a fleet; a machine registers once in its life.
+
+---
+
 ## Tests
 
 ```bash
@@ -322,7 +345,8 @@ It runs, it keeps history, and it has been watching a real machine for weeks. It
 production software yet, and the gaps are deliberate rather than unknown:
 
 - **The enrollment token never expires**, agent keys cannot be rotated, and neither can the
-  service key without editing both configurations.
+  service key without editing both configurations. Guessing it is now rate limited, which bounds
+  the attack without removing it.
 - **Accounts have no roles.** Every account can do everything, and splitting permissions is a
   separate job worth doing once there is a reason for it.
 - **Summaries are hourly and that is the only resolution.** A real time-series database keeps

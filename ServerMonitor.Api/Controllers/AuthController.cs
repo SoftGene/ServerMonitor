@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using ServerMonitor.Api.Auth;
 using ServerMonitor.Api.Dtos;
 using ServerMonitor.Infrastructure.Auth;
@@ -59,6 +60,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting(RateLimits.Credentials)]
     public async Task<ActionResult<LoginResponse>> Login(
         [FromBody] LoginRequest request,
         CancellationToken cancellationToken)

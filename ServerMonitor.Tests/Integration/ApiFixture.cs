@@ -58,6 +58,12 @@ public class ApiFixture : IAsyncLifetime
                 // races a test.
                 builder.UseSetting("Retention:SnapshotDays", "7");
                 builder.UseSetting("Retention:BatchSize", "100");
+
+                // Raised out of the way. The suite registers agents and signs in dozens of times
+                // against one host, which is nothing like how either endpoint is used in life;
+                // the limiter itself gets its own host with its own low limits.
+                builder.UseSetting("RateLimits:EnrollmentPerHour", "10000");
+                builder.UseSetting("RateLimits:CredentialsPerMinute", "10000");
             });
 
         // Forces the host to build, which is also what applies the migrations.
@@ -69,6 +75,16 @@ public class ApiFixture : IAsyncLifetime
         await _factory.DisposeAsync();
         await _postgres.DisposeAsync();
     }
+
+    /// <summary>
+    /// The container's connection string, for a test that needs a host of its own.
+    /// </summary>
+    /// <remarks>
+    /// Most tests share the one host, which is what keeps the suite fast. A setting that has to
+    /// differ — a rate limit low enough to reach without waiting an hour — cannot be changed on a
+    /// running host, so such a test builds its own against the same database.
+    /// </remarks>
+    public string ConnectionString => _postgres.GetConnectionString();
 
     /// <summary>A client with no service key — used to prove that endpoints refuse it.</summary>
     public HttpClient CreateAnonymousClient() => _factory.CreateClient();

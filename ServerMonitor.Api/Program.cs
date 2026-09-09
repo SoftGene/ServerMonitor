@@ -5,6 +5,7 @@ using ServerMonitor.Infrastructure.Alerting;
 using ServerMonitor.Infrastructure.Auth;
 using ServerMonitor.Infrastructure.Data;
 using ServerMonitor.Infrastructure.Monitoring;
+using ServerMonitor.Api.Auth;
 using ServerMonitor.Infrastructure.Retention;
 using ServerMonitor.Infrastructure.Telegram;
 
@@ -38,6 +39,7 @@ builder.Services.Configure<RetentionOptions>(
     builder.Configuration.GetSection(RetentionOptions.SectionName));
 
 builder.Services.AddControllers();
+builder.Services.AddApiRateLimiting(builder.Configuration);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
@@ -92,6 +94,10 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
+
+// After authorization and before the endpoints: a request that is going to be refused for its
+// credentials should not consume a caller's budget, and the limiter has to run before the work.
+app.UseRateLimiter();
 
 // An external watcher needs somewhere to poll: the system cannot report its own death
 // (see guide chapter 11). Deliberately unauthenticated — a health check that demands a secret
