@@ -43,6 +43,18 @@
     animation: none;
 }
 
+/* A dot that keeps pulsing green says "data is arriving". It must stop and change colour when
+   that stops being true, or the animation itself becomes the lie. */
+.live-dot.stale {
+    background: var(--status-warn);
+    animation: none;
+}
+
+.live-dot.offline {
+    background: var(--status-crit);
+    animation: none;
+}
+
 @keyframes pulse {
     0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
     70% { box-shadow: 0 0 0 7px transparent; }
@@ -498,4 +510,90 @@
 .cancel-btn:hover {
     color: var(--text);
     border-color: var(--text-muted);
+}
+
+/* Renaming, in the header where the name already is. The pencil stays invisible until the name
+   is hovered: it is a rare action, and a control that is always lit competes with the numbers
+   the screen exists to show. */
+.machine-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rename-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    color: var(--text-soft);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.machine-name:hover .rename-btn,
+.rename-btn:focus-visible {
+    opacity: 1;
+}
+
+.rename-btn:hover {
+    color: var(--accent);
+}
+
+.rename-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 2px 0;
+}
+
+.rename-input {
+    font-family: var(--font-sans);
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 2px 8px;
+    min-width: 260px;
+}
+
+.rename-ok,
+.rename-cancel {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 7px 14px;
+    border-radius: var(--radius);
+    cursor: pointer;
+}
+
+.rename-ok {
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    color: var(--accent-contrast);
+}
+
+.rename-ok:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.rename-cancel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+}
+
+.rename-cancel:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.rename-error {
+    color: var(--status-crit);
+    font-size: 13px;
+    margin: 4px 0 0 0;
 }

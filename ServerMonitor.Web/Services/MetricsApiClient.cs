@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Net.Http.Json;
 using ServerMonitor.Web.Models;
 
 namespace ServerMonitor.Web.Services;
@@ -37,6 +38,25 @@ public class MetricsApiClient
     }
 
     /// <summary>Deletes a machine together with its entire history. This cannot be undone.</summary>
+    /// <summary>Renames a machine. Returns the reason for a refusal, or null on success.</summary>
+    public async Task<string?> RenameServerAsync(
+        Guid serverId,
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PatchAsJsonAsync(
+            $"api/servers/{serverId}", new { name }, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        var reason = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        return string.IsNullOrWhiteSpace(reason) ? "The machine could not be renamed." : reason;
+    }
+
     public async Task<bool> DeleteServerAsync(Guid serverId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.DeleteAsync($"api/servers/{serverId}", cancellationToken);

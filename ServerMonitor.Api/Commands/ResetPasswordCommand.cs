@@ -51,6 +51,31 @@ public static class ResetPasswordCommand
 
         await using var dbContext = new AppDbContext(options);
 
+        // Bring the schema up to date first. The web host does this at startup, but this command
+        // deliberately runs before the host is built — so on a database that has not been started
+        // since the last upgrade, every query below fails with a raw "column does not exist" from
+        // PostgreSQL.
+        //
+        // That is the worst possible moment for it: this is the only way back into a system whose
+        // password has been lost, and it would break precisely for someone who had just upgraded.
+        // Announced rather than silent, because a password reset quietly changing the schema would
+        // be a surprise of a different kind.
+        var pending = (await dbContext.Database.GetPendingMigrationsAsync()).ToList();
+
+        if (pending.Count > 0)
+        {
+            Console.WriteLine($"The database is {pending.Count} migration(s) behind; applying them first:");
+
+            foreach (var migration in pending)
+            {
+                Console.WriteLine($"  {migration}");
+            }
+
+            await dbContext.Database.MigrateAsync();
+
+            Console.WriteLine("Schema is up to date.");
+        }
+
         var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Username == username);
 
         if (user is null)

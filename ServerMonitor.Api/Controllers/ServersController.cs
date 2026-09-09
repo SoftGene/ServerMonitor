@@ -15,6 +15,9 @@ public class ServersController : ControllerBase
     /// <summary>How many recent readings to return for the sparkline in a fleet row.</summary>
     private const int TrendPoints = 24;
 
+    /// <summary>Longest name a machine may be given.</summary>
+    private const int MaxNameLength = 60;
+
     private readonly AppDbContext _dbContext;
     private readonly ILogger<ServersController> _logger;
 
@@ -118,6 +121,58 @@ public class ServersController : ControllerBase
                 .Select(m => m.CpuUsagePercent)
                 .ToList()
         };
+    }
+
+    /// <summary>Renames a machine.</summary>
+    /// <remarks>
+    /// The name is the one thing about a machine a person chooses. It starts as the hostname the
+    /// agent reported, which is right as a default and often wrong as a label — "DESKTOP-5FCP59V"
+    /// says nothing about what the box actually does.
+    /// <para>
+    /// Safe to keep: the name is written only when an agent first registers, so a renamed machine
+    /// stays renamed no matter how many readings arrive afterwards.
+    /// </para>
+    /// </remarks>
+    [HttpPatch("{publicId:guid}")]
+    public async Task<IActionResult> RenameServer(
+        Guid publicId,
+        [FromBody] RenameServerRequest request,
+        CancellationToken cancellationToken)
+    {
+        var name = request.Name?.Trim() ?? string.Empty;
+
+        if (name.Length == 0)
+        {
+            return BadRequest("A machine needs a name.");
+        }
+
+        // Long enough for anything descriptive, short enough that one row cannot wreck the fleet
+        // layout for every other machine.
+        if (name.Length > MaxNameLength)
+        {
+            return BadRequest($"A name may be at most {MaxNameLength} characters.");
+        }
+
+        var server = await _dbContext.Servers
+            .FirstOrDefaultAsync(s => s.PublicId == publicId, cancellationToken);
+
+        if (server is null)
+        {
+            return NotFound();
+        }
+
+        // Names are deliberately not unique. Two machines may genuinely be called "backup", and
+        // refusing that would be the interface inventing a rule the system does not have — the
+        // identity of a machine is its PublicId, which is what every link and query uses.
+        var previous = server.Name;
+        server.Name = name;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Server {PublicId} renamed from {Previous} to {Name}.", publicId, previous, name);
+
+        return NoContent();
     }
 
     [HttpDelete("{publicId:guid}")]

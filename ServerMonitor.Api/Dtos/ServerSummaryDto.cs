@@ -20,3 +20,13 @@ public class ServerSummaryDto
     /// <summary>Recent CPU values in ascending time order, for the sparkline in the row.</summary>
     public List<double> CpuTrend { get; set; } = new();
 }
+
+/// <summary>A new display name for a machine.</summary>
+/// <remarks>
+/// Only the name. The hostname, operating system and agent version are facts the agent reports
+/// about itself, and letting the interface overwrite them would turn observations into opinions.
+/// </remarks>
+public class RenameServerRequest
+{
+    public string Name { get; set; } = string.Empty;
+}
