@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using ServerMonitor.Api.Auth;
 using Microsoft.EntityFrameworkCore;
 using ServerMonitor.Api.Dtos;
 using ServerMonitor.Domain.Entities;
@@ -26,6 +28,7 @@ public class AgentsController : ControllerBase
     }
 
     [HttpPost("register")]
+    [EnableRateLimiting(RateLimits.Enrollment)]
     public async Task<ActionResult<AgentRegistrationResponse>> Register(
         [FromBody] AgentRegistrationRequest request,
         [FromHeader(Name = "X-Enrollment-Token")] string? enrollmentToken,

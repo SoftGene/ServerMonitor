@@ -5,6 +5,8 @@ using ServerMonitor.Infrastructure.Alerting;
 using ServerMonitor.Infrastructure.Auth;
 using ServerMonitor.Infrastructure.Data;
 using ServerMonitor.Infrastructure.Monitoring;
+using ServerMonitor.Api.Auth;
+using ServerMonitor.Infrastructure.Retention;
 using ServerMonitor.Infrastructure.Telegram;
 
 // Parse the command BEFORE creating the builder: that one feeds args to the configuration
@@ -33,7 +35,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.Configure<MonitoringOptions>(
     builder.Configuration.GetSection(MonitoringOptions.SectionName));
 
+builder.Services.Configure<RetentionOptions>(
+    builder.Configuration.GetSection(RetentionOptions.SectionName));
+
 builder.Services.AddControllers();
+builder.Services.AddApiRateLimiting(builder.Configuration);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
@@ -54,6 +60,12 @@ builder.Services.AddSingleton<IAlertChannel, TelegramAlertChannel>();
 // Rule checking depends on no channel: an unconfigured bot used to switch it off entirely.
 builder.Services.AddHostedService<AlertingService>();
 builder.Services.AddHostedService<TelegramBotService>();
+
+// Old readings are deleted on a schedule. The sweeper is scoped because it needs a DbContext;
+// the hosted service that calls it is a singleton and opens a scope for each sweep.
+builder.Services.AddScoped<RollupBuilder>();
+builder.Services.AddScoped<SnapshotSweeper>();
+builder.Services.AddHostedService<RetentionService>();
 
 var app = builder.Build();
 
@@ -83,6 +95,10 @@ app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
+// After authorization and before the endpoints: a request that is going to be refused for its
+// credentials should not consume a caller's budget, and the limiter has to run before the work.
+app.UseRateLimiter();
+
 // An external watcher needs somewhere to poll: the system cannot report its own death
 // (see guide chapter 11). Deliberately unauthenticated — a health check that demands a secret
 // is one an uptime service cannot perform — and deliberately terse, because what exactly broke
@@ -97,3 +113,8 @@ app.MapControllers();
 app.Run();
 
 return 0;
+
+// Top-level statements compile into an internal Program class, which WebApplicationFactory
+// cannot reach. Declaring it public here is the documented way to make the API host startable
+// from integration tests.
+public partial class Program;

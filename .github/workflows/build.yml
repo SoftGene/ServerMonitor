@@ -1,0 +1,57 @@
+# Runs on every push and pull request. The point of having it is that "there are tests" stops
+# being a claim in the README and becomes something a stranger can verify by looking at the
+# commit list.
+name: build
+
+on:
+  push:
+    branches: [master, 'feature/**']
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # Restore is a separate step so a package that fails to download is reported as what it is,
+      # rather than surfacing later as a compile error about a missing type.
+      - name: Restore
+        run: dotnet restore ServerMonitor.slnx
+
+      # Warnings fail the build. The repository has none today, and the cheapest moment to keep
+      # it that way is before the first one lands. A side effect worth knowing about: a new NuGet
+      # security advisory turns this red without a line of code changing. That is information.
+      - name: Build
+        run: dotnet build ServerMonitor.slnx --no-restore --configuration Release -warnaserror
+
+      # The integration tests start PostgreSQL in a throwaway container, and Docker is already on
+      # the runner. That is what makes them worth running here: they exercise the foreign keys,
+      # cascade deletes and authorization filters that do not exist inside a unit test — which is
+      # exactly the category both of this project's silent defects belonged to.
+      - name: Test
+        run: dotnet test ServerMonitor.slnx --no-build --configuration Release
+
+  docker:
+    name: Container images
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Catches a malformed compose file, or a variable referenced and never defined, without
+      # starting anything. .env.example stands in for the real secrets; it holds placeholders.
+      - name: Validate compose
+        run: docker compose --env-file .env.example config --quiet
+
+      # The README promises that `docker compose up` works from a clean checkout. Building the
+      # images here is the only thing that keeps that promise true as the Dockerfiles change.
+      - name: Build images
+        run: docker compose --env-file .env.example build

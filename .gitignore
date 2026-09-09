@@ -368,3 +368,7 @@ FodyWeavers.xsd
 # pre-rename solution; ignoring it keeps a stray copy out of git if it comes back.
 SeverMonitor.slnx
 SeverMonitor.slnLaunch.user
+
+# Written by the agent beside its binary: its own key, and readings not yet delivered.
+agent-state.json
+agent-buffer.json

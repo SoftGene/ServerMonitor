@@ -7,9 +7,8 @@
 /// tolerable, not knowing what the machine is doing right now is not.
 /// </para>
 /// <para>
-/// The buffer lives in memory and does not survive a restart of the agent. That is a
-/// deliberate simplification: a file on disk would need a format, rotation and handling of
-/// corrupted records.
+/// The contents survive a restart: <see cref="BufferStore"/> keeps them on disk, because an
+/// outage and a restart are failures that arrive together far more often than separately.
 /// </para>
 /// </summary>
 public class MetricBuffer
@@ -23,6 +22,27 @@ public class MetricBuffer
     public MetricBuffer(int capacity)
     {
         _capacity = Math.Max(1, capacity);
+    }
+
+    /// <summary>
+    /// Replaces the contents with what a previous run left behind.
+    /// </summary>
+    /// <remarks>
+    /// Trimmed to the current capacity, keeping the newest: the setting may have been lowered
+    /// since the file was written, and restoring more than the configured limit would quietly
+    /// defeat the point of having one.
+    /// </remarks>
+    public void Restore(IReadOnlyList<MetricReport> items)
+    {
+        lock (_sync)
+        {
+            _items.Clear();
+
+            foreach (var item in items.Skip(Math.Max(0, items.Count - _capacity)))
+            {
+                _items.Enqueue(item);
+            }
+        }
     }
 
     public int Count

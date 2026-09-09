@@ -1,5 +1,7 @@
 # ServerMonitor
 
+[![build](https://github.com/SoftGene/ServerMonitor/actions/workflows/build.yml/badge.svg)](https://github.com/SoftGene/ServerMonitor/actions/workflows/build.yml)
+
 Self-hosted monitoring for a small fleet of machines. A lightweight agent runs on every server
 you want to watch and pushes CPU, memory, disk and uptime readings to a central API; a Blazor
 dashboard shows the fleet, and a Telegram bot reports when a threshold is crossed.
@@ -27,9 +29,13 @@ Built as a learning project, then taken far enough to actually run on my own ser
   of delivery, so events are recorded even with no Telegram configured.
 - **Requires a sign-in.** The UI is behind a username and password stored as a PBKDF2 hash, and
   the API answers nothing but agent ingest without a service key. A forgotten password is reset
-  from the server with a console command.
+  from the server with a console command, and doing so ends every session that account had open —
+  as does deleting the account.
 - **Runs on Linux and Windows.** Readings come from `/proc` on Linux and from Win32 API calls
   through P/Invoke on Windows.
+- **Keeps the shape of a year without keeping a year of rows.** Every finished hour is reduced
+  to one summary row — average, peak and sample count — before the raw readings age out, so a
+  trend from months ago still reads while the table stops growing.
 - **Ships as containers.** `docker compose up -d` brings up the database, the API and the
   dashboard, and exposes `/healthz` for an external uptime check.
 
@@ -216,6 +222,10 @@ On first run the agent exchanges the enrollment token for its own API key and wr
 `agent-state.json` next to the binary (mode `0600` on Unix). That file is what keeps a restart
 from registering the machine twice, so keep it.
 
+Readings it has not managed to deliver go to `agent-buffer.json` beside it, so an outage and a
+restart together are not the same as data loss. It holds no secrets, and deleting it costs only
+whatever had not been sent yet.
+
 Other settings, all optional:
 
 | Setting | Default | Meaning |
@@ -226,11 +236,89 @@ Other settings, all optional:
 
 ---
 
+## How long data is kept
+
+A reading every five seconds per machine is about seventeen thousand rows a day each. By default
+the server keeps **30 days** of them.
+
+Ageing out is not the same as being forgotten. Once an hour, every finished hour of readings is
+reduced to a single row — the average, the peak and how many readings it was built from — and only
+then is the raw data deleted. A year of those summaries is 8,760 rows per machine against six
+million, and the **Trend** page reads them, so a chart from ten months ago costs the same as one
+from yesterday.
+
+The order is the whole design, and it is not interchangeable: summarise, then delete. The other
+way round is silent, permanent loss, because deleting rows nothing summarised succeeds exactly as
+quietly as deleting rows something did.
+
+What that trade actually costs: a year ago you can see that memory sat near 80% all week and that
+one hour peaked at 97%. You cannot see the individual reading at 14:32 on that Tuesday. Detail is
+what gets old; shape is what stays useful.
+
+| Setting | Default | Meaning |
+|---------|---------|---------|
+| `Retention__SnapshotDays` | `30` | Days of readings to keep. `0` keeps everything |
+| `Retention__SweepIntervalHours` | `1` | How often summaries are built and old rows deleted |
+| `Retention__BatchSize` | `10000` | Rows removed per statement |
+
+With Docker, set `RETENTION_DAYS` in `.env`.
+
+This is configuration rather than a control on the settings page, and that is deliberate. Changing
+an alert threshold is reversible — the old number can be typed back. Deleting three months of
+history is not, and a button that destroys data should not sit beside one that changes a number.
+It is also a question about disk, which belongs to whoever runs the instance rather than to
+whoever reads the graphs.
+
+`0` means "keep everything", never "everything is older than zero days". A setting that governs a
+destructive action reads, when it is missing or nonsensical, as the option that does nothing.
+
+Alerts are not swept, and neither are the hourly summaries. Both are small, and both are the
+record of what actually happened.
+
+---
+
+## Rate limits
+
+Two endpoints accept a secret from a caller who has not proved anything yet, so both can be
+guessed at. Login already counts failures per username; nothing counted attempts at the enrollment
+token, which is a single shared value that never expires.
+
+| Setting | Default | Applies to |
+|---------|---------|------------|
+| `RateLimits__EnrollmentPerHour` | `10` | `POST /api/agents/register` |
+| `RateLimits__CredentialsPerMinute` | `20` | `POST /api/auth/login` |
+
+Partitioned by remote address, which is imperfect on purpose: one NAT shares a bucket and an
+attacker with many addresses gets many buckets. It still turns an unbounded guessing rate into a
+bounded one, and the per-username throttle covers the case it misses — a different username every
+attempt, which leaves every counter at one.
+
+Ingest is deliberately not limited. An agent already holds a key it was issued, and throttling it
+would only drop readings from machines that are behaving.
+
+Raise `EnrollmentPerHour` while rolling out a fleet; a machine registers once in its life.
+
+---
+
 ## Tests
 
 ```bash
 dotnet test
 ```
+
+Two kinds, and the split is on purpose.
+
+**Unit tests** cover the decisions: when an alert should fire, when the backoff should give up,
+how a threshold is compared. These take no dependencies and run in milliseconds.
+
+**Integration tests** start the real API against a real PostgreSQL in a throwaway container
+([Testcontainers](https://testcontainers.com/)) and talk to it over HTTP. They cover what a unit
+test structurally cannot see, because none of it exists in a unit test: foreign keys, cascade
+deletes, unique indexes, the service-key filter, the order of middleware. Both of the defects
+this project shipped silently were of exactly that kind — correct C# that the database rejected.
+
+Docker has to be running for those; without it they fail rather than skip, which is the honest
+outcome. The container is shared by the whole collection and the suite finishes in a few seconds.
 
 Two collector tests read real `/proc` and take a second of wall time, so they are opt-in:
 
@@ -257,16 +345,23 @@ It runs, it keeps history, and it has been watching a real machine for weeks. It
 production software yet, and the gaps are deliberate rather than unknown:
 
 - **The enrollment token never expires**, agent keys cannot be rotated, and neither can the
-  service key without editing both configurations.
-- **Accounts have no roles**, and deleting one does not end a session that is already open.
-- **Data is kept forever.** A reading every five seconds adds up; there is no retention policy.
-- **The agent's buffer is in memory**, so a restart during an outage loses what it held.
+  service key without editing both configurations. Guessing it is now rate limited, which bounds
+  the attack without removing it.
+- **Accounts have no roles.** Every account can do everything, and splitting permissions is a
+  separate job worth doing once there is a reason for it.
+- **Summaries are hourly and that is the only resolution.** A real time-series database keeps
+  several tiers — minutes, then hours, then days. Here there is one, so a two-year chart is
+  17,000 points.
+- **Nothing is partitioned.** At real volume old data is dropped by the partition rather than
+  deleted row by row, which is instant and returns the disk immediately.
+- **The buffer is bounded, so a long enough outage still drops readings.** It survives a restart
+  now, but an outage past the configured capacity discards the oldest to keep measuring.
 - **Nothing watches the monitor itself.** If the central API dies, no alert goes out — a
   system cannot report its own death. `/healthz` is there for an external uptime service to
   poll; pointing one at it is left to whoever deploys this.
 - **One offline threshold for the whole fleet**, and alerts have no severity levels.
 
-Roadmap: data retention, then whatever running it for real turns up.
+Roadmap: whatever running it for real turns up.
 
 ---
 

@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<AppSettings> AppSettings => Set<AppSettings>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Server> Servers => Set<Server>();
+    public DbSet<MetricRollup> MetricRollups => Set<MetricRollup>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -45,6 +46,20 @@ public class AppDbContext : DbContext
             entity.HasOne<Server>()
                 .WithMany()
                 .HasForeignKey(m => m.ServerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MetricRollup>(entity =>
+        {
+            // The pair is what makes the aggregation repeatable: running it again over an hour
+            // it has already covered updates that row instead of adding a second one. Without
+            // this index the ON CONFLICT clause has nothing to detect a conflict against, and
+            // PostgreSQL rejects the statement outright rather than silently duplicating.
+            entity.HasIndex(r => new { r.ServerId, r.HourUtc }).IsUnique();
+
+            entity.HasOne<Server>()
+                .WithMany()
+                .HasForeignKey(r => r.ServerId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

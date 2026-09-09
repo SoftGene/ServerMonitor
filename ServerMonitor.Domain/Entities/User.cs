@@ -18,6 +18,25 @@ public class User
     /// </summary>
     public string PasswordHash { get; set; } = string.Empty;
 
+    /// <summary>
+    /// A value that changes whenever every existing session for this account should stop being
+    /// accepted.
+    /// </summary>
+    /// <remarks>
+    /// A signed cookie is believed on its own signature: the server does not keep a list of who
+    /// is currently signed in, which is exactly what makes cookie authentication cheap. The cost
+    /// is that deleting an account, or changing its password, does nothing to a browser that is
+    /// already holding a valid cookie — it stays signed in until the cookie expires, which here
+    /// is a week.
+    /// <para>
+    /// The stamp is the usual answer. It is copied into the cookie when the session starts, and
+    /// re-checked against this column periodically; once they disagree, the session is over.
+    /// ASP.NET Identity calls the same thing a security stamp, and this is the same idea written
+    /// out by hand.
+    /// </para>
+    /// </remarks>
+    public string SecurityStamp { get; set; } = Guid.NewGuid().ToString("N");
+
     public DateTime CreatedAtUtc { get; set; }
 
     public DateTime? LastLoginUtc { get; set; }
