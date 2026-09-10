@@ -75,4 +75,51 @@ public class ServerHealthTests
             ServerHealth.Online,
             ServerHealthCalculator.FromLastSeen(lastSeen, Now, staleAfter: TimeSpan.FromMinutes(2)));
     }
+
+    [Fact]
+    public void AMachineWithItsOwnThreshold_UsesIt()
+    {
+        Assert.Equal(TimeSpan.FromHours(12), ServerHealthCalculator.ResolveOfflineAfter(43200, 300));
+    }
+
+    [Fact]
+    public void AMachineWithoutOne_FollowsTheFleet()
+    {
+        Assert.Equal(TimeSpan.FromMinutes(10), ServerHealthCalculator.ResolveOfflineAfter(null, 600));
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(0, 0)]
+    [InlineData(-5, -1)]
+    public void NothingUsable_FallsBackToTheBuiltInDefault(int? machine, int? fleet)
+    {
+        // Zero or negative must never become "offline immediately": every machine would be
+        // reported missing between two perfectly normal readings.
+        Assert.Equal(
+            ServerHealthCalculator.OfflineAfter,
+            ServerHealthCalculator.ResolveOfflineAfter(machine, fleet));
+    }
+
+    [Fact]
+    public void AnUnusableMachineValue_DoesNotHideAUsableFleetOne()
+    {
+        Assert.Equal(TimeSpan.FromMinutes(10), ServerHealthCalculator.ResolveOfflineAfter(0, 600));
+    }
+
+    [Fact]
+    public void TheSameSilence_ReadsDifferentlyUnderDifferentThresholds()
+    {
+        // The feature in one assertion: two hours of silence is an outage for a server and an
+        // ordinary evening for a laptop that is allowed twelve.
+        var lastSeen = Now.AddHours(-2);
+
+        var server = ServerHealthCalculator.FromLastSeen(lastSeen, Now,
+            offlineAfter: ServerHealthCalculator.ResolveOfflineAfter(null, 300));
+        var laptop = ServerHealthCalculator.FromLastSeen(lastSeen, Now,
+            offlineAfter: ServerHealthCalculator.ResolveOfflineAfter(43200, 300));
+
+        Assert.Equal(ServerHealth.Offline, server);
+        Assert.NotEqual(ServerHealth.Offline, laptop);
+    }
 }

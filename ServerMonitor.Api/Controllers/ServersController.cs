@@ -18,6 +18,10 @@ public class ServersController : ControllerBase
     /// <summary>Longest name a machine may be given.</summary>
     private const int MaxNameLength = 60;
 
+    /// <summary>Bounds for a machine's own silence threshold — the same as the fleet-wide setting.</summary>
+    private const int MinOfflineSeconds = 30;
+    private const int MaxOfflineSeconds = 86400;
+
     private readonly AppDbContext _dbContext;
     private readonly ILogger<ServersController> _logger;
 
@@ -109,9 +113,17 @@ public class ServersController : ControllerBase
             OperatingSystem = server.OperatingSystem,
             AgentVersion = server.AgentVersion,
             LastSeenUtc = server.LastSeenUtc,
+            // Through the same resolver the alerting uses, so the screen and the notification can
+            // never disagree about whether this machine is missing.
             Health = ServerHealthCalculator
-                .FromLastSeen(server.LastSeenUtc, nowUtc, offlineAfter: offlineAfter)
+                .FromLastSeen(
+                    server.LastSeenUtc,
+                    nowUtc,
+                    offlineAfter: ServerHealthCalculator.ResolveOfflineAfter(
+                        server.OfflineAfterSeconds, (int)offlineAfter.TotalSeconds))
                 .ToString(),
+            CustomOfflineAfterSeconds = server.OfflineAfterSeconds,
+            FleetOfflineAfterSeconds = (int)offlineAfter.TotalSeconds,
             CpuUsagePercent = latest?.CpuUsagePercent,
             MemoryUsagePercent = latest?.MemoryUsagePercent,
             DiskUsagePercent = latest?.DiskUsagePercent,
@@ -171,6 +183,54 @@ public class ServersController : ControllerBase
 
         _logger.LogInformation(
             "Server {PublicId} renamed from {Previous} to {Name}.", publicId, previous, name);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Sets how long this machine may stay silent before it counts as missing, or returns it to
+    /// the fleet default when the value is null.
+    /// </summary>
+    /// <remarks>
+    /// Its own endpoint rather than a field on the rename. In JSON "absent" and "null" are easy to
+    /// confuse, and here null carries a meaning of its own — "stop overriding". A separate address
+    /// keeps that meaning impossible to misread.
+    /// </remarks>
+    [HttpPut("{publicId:guid}/offline-threshold")]
+    public async Task<IActionResult> SetOfflineThreshold(
+        Guid publicId,
+        [FromBody] SetOfflineThresholdRequest request,
+        CancellationToken cancellationToken)
+    {
+        // The same bounds as the fleet-wide setting, for the same reason: below the collection
+        // interval a perfectly healthy machine would "disappear" between two normal readings.
+        if (request.Seconds is < MinOfflineSeconds or > MaxOfflineSeconds)
+        {
+            return BadRequest(
+                $"Offline threshold must be between {MinOfflineSeconds} seconds and {MaxOfflineSeconds / 3600} hours.");
+        }
+
+        var server = await _dbContext.Servers
+            .FirstOrDefaultAsync(s => s.PublicId == publicId, cancellationToken);
+
+        if (server is null)
+        {
+            return NotFound();
+        }
+
+        server.OfflineAfterSeconds = request.Seconds;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        if (request.Seconds is null)
+        {
+            _logger.LogInformation("Server {PublicId} now follows the fleet offline threshold.", publicId);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Server {PublicId} offline threshold set to {Seconds} s.", publicId, request.Seconds);
+        }
 
         return NoContent();
     }

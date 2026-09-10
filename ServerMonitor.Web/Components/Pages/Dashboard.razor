@@ -231,7 +231,43 @@
 
     @if (server is not null)
     {
-        <div class="section-label"><span class="section-no">04</span>Danger zone</div>
+        <div class="section-label"><span class="section-no">04</span>Availability</div>
+        <div class="availability-card">
+            <div class="availability-text">
+                <div class="availability-title">Report as missing after</div>
+                <p class="availability-desc">
+                    @if (server.CustomOfflineAfterSeconds is null)
+                    {
+                        <text>Follows the fleet default of <strong>@FormatDuration(server.FleetOfflineAfterSeconds)</strong>.
+                        Give this machine its own if it is expected to go quiet — a laptop that sleeps at
+                        night should not raise an alarm every evening.</text>
+                    }
+                    else
+                    {
+                        <text>This machine has its own threshold of <strong>@FormatDuration(server.CustomOfflineAfterSeconds.Value)</strong>;
+                        the fleet default is @FormatDuration(server.FleetOfflineAfterSeconds).</text>
+                    }
+                </p>
+            </div>
+            <div class="availability-controls">
+                <div class="minutes-wrap">
+                    <input type="number" min="1" max="1440" class="minutes-input"
+                           @bind="thresholdMinutes" aria-label="Minutes of silence" />
+                    <span class="minutes-unit">min</span>
+                </div>
+                <button class="availability-btn" @onclick="SaveThresholdAsync">Save</button>
+                @if (server.CustomOfflineAfterSeconds is not null)
+                {
+                    <button class="cancel-btn" @onclick="UseFleetDefaultAsync">Use fleet default</button>
+                }
+            </div>
+        </div>
+        @if (thresholdMessage is not null)
+        {
+            <div class="state-msg @(thresholdSaved ? "" : "error")">@thresholdMessage</div>
+        }
+
+        <div class="section-label"><span class="section-no">05</span>Danger zone</div>
         <div class="danger-zone">
             <div class="danger-text">
                 <div class="danger-title">Remove this machine</div>
@@ -326,6 +362,7 @@
         try
         {
             server = await ApiClient.GetServerAsync(PublicId);
+            SyncThresholdDraft();
 
             if (server is null)
             {
@@ -433,6 +470,91 @@
         server.Name = name;
         isRenaming = false;
     }
+
+    private int thresholdMinutes = 5;
+    private Guid? thresholdDraftFor;
+    private string? thresholdMessage;
+    private bool thresholdSaved;
+
+    /// <summary>
+    /// Fills the minutes field from the server once per machine, not on every poll.
+    /// </summary>
+    /// <remarks>
+    /// The page refreshes every few seconds. Re-reading the value on each refresh would overwrite
+    /// whatever the person was in the middle of typing.
+    /// </remarks>
+    private void SyncThresholdDraft()
+    {
+        if (server is null || thresholdDraftFor == PublicId)
+        {
+            return;
+        }
+
+        thresholdMinutes = ToMinutes(server.CustomOfflineAfterSeconds ?? server.FleetOfflineAfterSeconds);
+        thresholdDraftFor = PublicId;
+        thresholdMessage = null;
+    }
+
+    private async Task SaveThresholdAsync()
+    {
+        // Held locally: the poll can replace or clear the field while the request is in flight.
+        var current = server;
+
+        if (current is null)
+        {
+            return;
+        }
+
+        if (thresholdMinutes is < 1 or > 1440)
+        {
+            thresholdSaved = false;
+            thresholdMessage = "Between 1 minute and 24 hours.";
+
+            return;
+        }
+
+        var seconds = thresholdMinutes * 60;
+        var problem = await ApiClient.SetOfflineThresholdAsync(PublicId, seconds);
+
+        thresholdSaved = problem is null;
+        thresholdMessage = problem ?? $"Saved. This machine counts as missing after {FormatDuration(seconds)} of silence.";
+
+        if (problem is null)
+        {
+            // Shown at once rather than on the next poll, so the sentence above matches the value.
+            current.CustomOfflineAfterSeconds = seconds;
+        }
+    }
+
+    private async Task UseFleetDefaultAsync()
+    {
+        var current = server;
+
+        if (current is null)
+        {
+            return;
+        }
+
+        var problem = await ApiClient.SetOfflineThresholdAsync(PublicId, null);
+
+        thresholdSaved = problem is null;
+        thresholdMessage = problem ?? "This machine follows the fleet default again.";
+
+        if (problem is null)
+        {
+            current.CustomOfflineAfterSeconds = null;
+            thresholdMinutes = ToMinutes(current.FleetOfflineAfterSeconds);
+        }
+    }
+
+    private static int ToMinutes(int seconds) => Math.Max(1, seconds / 60);
+
+    private static string FormatDuration(int seconds) => seconds switch
+    {
+        < 3600 => $"{Math.Max(1, seconds / 60)} min",
+        _ when seconds % 3600 == 0 => $"{seconds / 3600} h",
+        _ => $"{seconds / 3600} h {seconds % 3600 / 60} min"
+    };
 
     private void TogglePause() => isPaused = !isPaused;
 

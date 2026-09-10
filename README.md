@@ -25,9 +25,10 @@ Built as a learning project, then taken far enough to actually run on my own ser
   Going up a level takes several consecutive readings, so a single spike stays quiet; easing
   back down is reported at once. A value that jumps straight to critical raises one alert,
   not a warning and a critical a moment apart.
-- **Notices when a machine goes quiet.** A configurable silence threshold turns into an alert
-  when an agent stops reporting, and another when it comes back. Rule checking is independent
-  of delivery, so events are recorded even with no Telegram configured.
+- **Notices when a machine goes quiet.** A silence threshold — fleet-wide, with an override for
+  any machine expected to sleep — turns into an alert when an agent stops reporting, and another
+  when it comes back. Rule checking is independent of delivery, so events are recorded even with
+  no Telegram configured.
 - **Requires a sign-in.** The UI is behind a username and password stored as a PBKDF2 hash, and
   the API answers nothing but agent ingest without a service key. A forgotten password is reset
   from the server with a console command, and doing so ends every session that account had open —
@@ -122,6 +123,34 @@ To watch a machine, install the agent on it — see [Adding a machine](#adding-a
 
 ---
 
+## Running it on a server
+
+The quick start works unchanged on a Linux machine with Docker. A few things are worth knowing
+before other machines on the network start talking to it.
+
+**Addresses.** The dashboard is at `http://<server-ip>:5298`, and agents on other machines report to
+`http://<server-ip>:7212`. Both are plain HTTP: fine on a network you trust, and a reason to put a
+reverse proxy with TLS in front before exposing it any further.
+
+**The database is not published to the network.** It is bound to `127.0.0.1` only, and the reason
+is worth knowing: Docker writes its own firewall rules for the ports it publishes, so a `ufw` rule
+on the host does not close a port compose has opened. The binding is what actually closes it.
+
+**Sign-ins survive a rebuild.** The key ring that encrypts cookies is kept on a volume, so
+`docker compose up -d --build` does not sign everyone out.
+
+**Updating:**
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+The data lives in the `postgres_data` volume and survives that. `docker compose down -v` does not
+keep it: the `-v` deletes volumes.
+
+---
+
 ## Running from source
 
 For working on the code rather than just running it.
@@ -205,6 +234,25 @@ reference at `https://localhost:7212/scalar/v1`.
 ---
 
 ## Adding a machine
+
+### On Linux
+
+One script does it: it builds a self-contained agent (inside Docker, so the machine needs no .NET),
+installs it as a systemd service under its own user, and waits until the agent has actually
+registered rather than merely started.
+
+```bash
+git clone https://github.com/SoftGene/ServerMonitor.git
+cd ServerMonitor
+sudo ./deploy/agent/install.sh
+```
+
+It asks for the API address and the enrollment token, `ENROLLMENT_TOKEN` in the server's `.env`.
+Running it again upgrades in place and keeps the machine's identity. An unreachable server is
+retried; a refused token stops the service instead of retrying forever, and
+`systemctl status servermonitor-agent` says why.
+
+### By hand
 
 Publish the agent and copy it to the machine you want to watch:
 
@@ -349,8 +397,8 @@ production software yet, and the gaps are deliberate rather than unknown:
 - **Nothing watches the monitor itself.** If the central API dies, no alert goes out — a
   system cannot report its own death. `/healthz` is there for an external uptime service to
   poll; pointing one at it is left to whoever deploys this.
-- **One offline threshold for the whole fleet.** A database server and a laptop that sleeps at
-  night are judged by the same length of silence.
+- **"Stale" is one minute of silence for every machine.** A laptop allowed to sleep for twelve
+  hours raises no alert overnight, as intended, but is still drawn amber until it wakes.
 
 Roadmap: whatever running it for real turns up.
 

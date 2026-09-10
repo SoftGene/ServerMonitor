@@ -48,4 +48,28 @@ public static class ServerHealthCalculator
 
         return ServerHealth.Online;
     }
+
+    /// <summary>
+    /// The silence threshold that applies to one machine: its own if it has one, the fleet's
+    /// otherwise, and the built-in default when neither is usable.
+    /// </summary>
+    /// <remarks>
+    /// One method for every caller — the fleet screen and the alerting both go through it. They
+    /// used to read the setting separately, and the moment a second source of truth appears is
+    /// exactly when separate readings drift apart: the interface would show a machine as healthy
+    /// after the alert about it had already gone out.
+    /// </remarks>
+    public static TimeSpan ResolveOfflineAfter(int? machineSeconds, int? fleetSeconds)
+    {
+        if (machineSeconds is > 0)
+        {
+            return TimeSpan.FromSeconds(machineSeconds.Value);
+        }
+
+        // Zero or negative is never "offline immediately": every machine would be reported
+        // missing between two perfectly normal readings.
+        return fleetSeconds is > 0
+            ? TimeSpan.FromSeconds(fleetSeconds.Value)
+            : OfflineAfter;
+    }
 }
