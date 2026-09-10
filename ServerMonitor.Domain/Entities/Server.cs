@@ -25,4 +25,16 @@ public class Server
 
     /// <summary>When data last arrived from the agent. Health is derived from it.</summary>
     public DateTime? LastSeenUtc { get; set; }
+
+    /// <summary>
+    /// How long this machine may stay silent before it counts as missing, overriding the fleet
+    /// default. Null follows the default.
+    /// </summary>
+    /// <remarks>
+    /// One threshold for the whole fleet judged a database server and a laptop that sleeps at
+    /// night by the same length of silence — so either the server's outage was reported late, or
+    /// the laptop raised an alarm every evening. A machine that is expected to go quiet should be
+    /// allowed to, without loosening the rule for the machines that are not.
+    /// </remarks>
+    public int? OfflineAfterSeconds { get; set; }
 }

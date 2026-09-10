@@ -19,6 +19,12 @@ public class ServerSummary
 
     public List<double> CpuTrend { get; set; } = new();
 
+    /// <summary>This machine's own silence threshold in seconds, or null when it follows the fleet.</summary>
+    public int? CustomOfflineAfterSeconds { get; set; }
+
+    /// <summary>The fleet-wide threshold in seconds.</summary>
+    public int FleetOfflineAfterSeconds { get; set; }
+
     public bool IsOffline => Health == "Offline";
     public bool HasReadings => CpuUsagePercent is not null;
 }

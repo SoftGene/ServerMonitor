@@ -19,6 +19,15 @@ public class ServerSummaryDto
 
     /// <summary>Recent CPU values in ascending time order, for the sparkline in the row.</summary>
     public List<double> CpuTrend { get; set; } = new();
+
+    /// <summary>This machine's own silence threshold in seconds, or null when it follows the fleet.</summary>
+    public int? CustomOfflineAfterSeconds { get; set; }
+
+    /// <summary>
+    /// The fleet-wide threshold in seconds. Sent beside the custom one so the interface can say
+    /// what "follow the fleet default" would actually mean without a second request.
+    /// </summary>
+    public int FleetOfflineAfterSeconds { get; set; }
 }
 
 /// <summary>A new display name for a machine.</summary>
@@ -29,4 +38,10 @@ public class ServerSummaryDto
 public class RenameServerRequest
 {
     public string Name { get; set; } = string.Empty;
+}
+
+/// <summary>A silence threshold for one machine. Null returns it to the fleet default.</summary>
+public class SetOfflineThresholdRequest
+{
+    public int? Seconds { get; set; }
 }

@@ -174,14 +174,19 @@ public class AlertingService : BackgroundService
 
         var servers = await dbContext.Servers
             .AsNoTracking()
-            .Select(s => new { s.Id, s.Name, s.LastSeenUtc })
+            .Select(s => new { s.Id, s.Name, s.LastSeenUtc, s.OfflineAfterSeconds })
             .ToListAsync(cancellationToken);
 
         var nowUtc = DateTime.UtcNow;
-        var offlineAfter = TimeSpan.FromSeconds(Math.Max(1, settings.OfflineAfterSeconds));
 
         foreach (var server in servers)
         {
+            // Resolved per machine, through the same method the fleet screen uses: a laptop allowed
+            // to sleep for twelve hours must not be reported missing after five minutes, and the
+            // interface and the alert must never disagree about which rule applied.
+            var offlineAfter = ServerHealthCalculator.ResolveOfflineAfter(
+                server.OfflineAfterSeconds, settings.OfflineAfterSeconds);
+
             if (checkHeartbeat && settings.HeartbeatAlertsEnabled)
             {
                 await CheckHeartbeatAsync(

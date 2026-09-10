@@ -38,6 +38,28 @@ public class MetricsApiClient
     }
 
     /// <summary>Deletes a machine together with its entire history. This cannot be undone.</summary>
+    /// <summary>
+    /// Sets a machine's own silence threshold, or returns it to the fleet default with null.
+    /// Returns the reason for a refusal, or null on success.
+    /// </summary>
+    public async Task<string?> SetOfflineThresholdAsync(
+        Guid serverId,
+        int? seconds,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/servers/{serverId}/offline-threshold", new { seconds }, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        var reason = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        return string.IsNullOrWhiteSpace(reason) ? "The threshold could not be saved." : reason;
+    }
+
     /// <summary>Renames a machine. Returns the reason for a refusal, or null on success.</summary>
     public async Task<string?> RenameServerAsync(
         Guid serverId,

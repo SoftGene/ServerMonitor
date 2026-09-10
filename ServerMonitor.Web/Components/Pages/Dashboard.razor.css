@@ -597,3 +597,88 @@
     font-size: 13px;
     margin: 4px 0 0 0;
 }
+
+/* A machine's own silence threshold. Laid out like the danger zone below it, so the two read as
+   the same kind of control — but in neutral colours, because this one is reversible. */
+.availability-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+    padding: 20px 22px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.availability-title {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.availability-desc {
+    margin: 6px 0 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-muted);
+    max-width: 62ch;
+}
+
+.availability-desc strong {
+    color: var(--text);
+}
+
+.availability-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.minutes-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.minutes-input {
+    width: 90px;
+    padding: 9px 11px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+}
+
+.minutes-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.minutes-unit {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.availability-btn {
+    padding: 9px 16px;
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent-contrast);
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.availability-btn:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+}
