@@ -110,7 +110,10 @@ check_for_another_copy() {
   local dir="$1" name owner project
 
   for name in servermonitor-db servermonitor-api servermonitor-web; do
-    owner="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$name" 2>/dev/null)" \
+    # docker container inspect, not docker inspect: compose names its images after the same project,
+    # so once the containers are gone a plain inspect finds the image servermonitor-api instead,
+    # which has no such label, and a stopped install would be taken for someone else's.
+    owner="$(docker container inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$name" 2>/dev/null)" \
       || continue
     [[ "$owner" == "$dir" ]] && continue
     [[ -n "$owner" && "$owner" != "<no value>" ]] || owner="outside compose"
