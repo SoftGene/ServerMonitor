@@ -207,3 +207,14 @@
     margin: 0 4px;
     color: var(--text-soft);
 }
+
+/* A warning is not a critical, and the colour has to say so before the words do. These come
+   after the .triggered rules and match them in specificity, which is what lets them win. */
+.alert-item.warning::before {
+    background: var(--status-warn);
+    border-color: var(--status-warn);
+}
+
+.alert-item.warning .alert-icon {
+    color: var(--status-warn);
+}

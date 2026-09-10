@@ -72,6 +72,7 @@ public class AlertsController : ControllerBase
                 Value = row.Alert.Value,
                 Threshold = row.Alert.Threshold,
                 AlertType = row.Alert.AlertType.ToString(),
+                Severity = row.Alert.Severity.ToString(),
                 ServerName = row.Name,
                 ServerPublicId = row.PublicId
             })
