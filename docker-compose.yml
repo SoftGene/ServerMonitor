@@ -68,6 +68,10 @@ services:
       # Inside the compose network services reach each other by name, over plain HTTP.
       ApiSettings__BaseUrl: "http://api:8080"
       ApiSettings__ServiceKey: ${SERVICE_KEY:?set SERVICE_KEY in .env}
+      # Optional. The address agents on other machines report to, as shown in the install commands
+      # on the "Add a machine" page. Left empty it is worked out from the address the dashboard was
+      # opened with, which is right unless a proxy sits in front of both.
+      ApiSettings__PublicUrl: ${PUBLIC_API_URL:-}
       # The key ring that encrypts sign-in cookies and form tokens. On a volume, because inside
       # the container it would be lost on every rebuild: everyone signed out, and any login form
       # open at that moment refused.
