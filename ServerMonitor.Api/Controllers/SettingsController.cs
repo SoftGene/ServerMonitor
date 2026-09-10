@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServerMonitor.Api.Auth;
 using ServerMonitor.Api.Dtos;
@@ -31,6 +31,9 @@ public class SettingsController : ControllerBase
             CpuThreshold = settings.CpuThreshold,
             MemoryThreshold = settings.MemoryThreshold,
             DiskThreshold = settings.DiskThreshold,
+            CpuWarningThreshold = settings.CpuWarningThreshold,
+            MemoryWarningThreshold = settings.MemoryWarningThreshold,
+            DiskWarningThreshold = settings.DiskWarningThreshold,
             AlertsEnabled = settings.AlertsEnabled,
             OfflineAfterSeconds = settings.OfflineAfterSeconds,
             HeartbeatAlertsEnabled = settings.HeartbeatAlertsEnabled
@@ -40,11 +43,25 @@ public class SettingsController : ControllerBase
     [HttpPut]
     public async Task<IActionResult> UpdateSettings([FromBody] SettingsDto dto, CancellationToken cancellationToken)
     {
-        if (dto.CpuThreshold < 1 || dto.CpuThreshold > 100 ||
-            dto.MemoryThreshold < 1 || dto.MemoryThreshold > 100 ||
-            dto.DiskThreshold < 1 || dto.DiskThreshold > 100)
+        double[] thresholds =
+        [
+            dto.CpuThreshold, dto.MemoryThreshold, dto.DiskThreshold,
+            dto.CpuWarningThreshold, dto.MemoryWarningThreshold, dto.DiskWarningThreshold
+        ];
+
+        if (thresholds.Any(threshold => threshold < 1 || threshold > 100))
         {
             return BadRequest("Thresholds must be between 1 and 100.");
+        }
+
+        // Equal is allowed and means "no warnings for this metric". Above is refused: a warning
+        // set higher than critical could never fire, because every value past it is already
+        // critical. Refusing it says so, instead of quietly accepting a setting that does nothing.
+        if (dto.CpuWarningThreshold > dto.CpuThreshold ||
+            dto.MemoryWarningThreshold > dto.MemoryThreshold ||
+            dto.DiskWarningThreshold > dto.DiskThreshold)
+        {
+            return BadRequest("A warning threshold cannot be above its critical threshold.");
         }
 
         // The lower bound is not cosmetic: a threshold shorter than the collection interval
@@ -62,6 +79,9 @@ public class SettingsController : ControllerBase
         settings.CpuThreshold = dto.CpuThreshold;
         settings.MemoryThreshold = dto.MemoryThreshold;
         settings.DiskThreshold = dto.DiskThreshold;
+        settings.CpuWarningThreshold = dto.CpuWarningThreshold;
+        settings.MemoryWarningThreshold = dto.MemoryWarningThreshold;
+        settings.DiskWarningThreshold = dto.DiskWarningThreshold;
         settings.AlertsEnabled = dto.AlertsEnabled;
         settings.OfflineAfterSeconds = dto.OfflineAfterSeconds;
         settings.HeartbeatAlertsEnabled = dto.HeartbeatAlertsEnabled;

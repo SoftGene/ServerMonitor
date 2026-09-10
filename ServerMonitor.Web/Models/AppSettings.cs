@@ -1,12 +1,19 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 
 namespace ServerMonitor.Web.Models;
 
 public class AppSettings
 {
+    /// <summary>Critical thresholds. The names predate warning levels.</summary>
     public double CpuThreshold { get; set; }
     public double MemoryThreshold { get; set; }
     public double DiskThreshold { get; set; }
+
+    /// <summary>Warning thresholds. Equal to critical switches warnings off for that metric.</summary>
+    public double CpuWarningThreshold { get; set; }
+    public double MemoryWarningThreshold { get; set; }
+    public double DiskWarningThreshold { get; set; }
+
     public bool AlertsEnabled { get; set; }
 
     /// <summary>How many seconds of silence count as a machine having gone missing.</summary>

@@ -1,13 +1,24 @@
-﻿namespace ServerMonitor.Infrastructure.Alerting;
+using ServerMonitor.Domain.Entities;
+
+namespace ServerMonitor.Infrastructure.Alerting;
 
 /// <summary>The current alert state for one machine-and-metric pair.</summary>
 public sealed class MetricAlertState
 {
-    /// <summary>The alert is open: the message has been sent and must not repeat.</summary>
+    /// <summary>
+    /// For availability: an alert is open and must not repeat.
+    /// </summary>
+    /// <remarks>
+    /// Availability has two states, so a flag is enough. CPU, memory and disk have three —
+    /// normal, warning, critical — and keep theirs in <see cref="Threshold"/> instead.
+    /// </remarks>
     public bool IsAlerting { get; set; }
 
-    /// <summary>How many checks in a row the value has stayed above the threshold.</summary>
-    public int ConsecutiveHighSamples { get; set; }
+    /// <summary>
+    /// For CPU, memory and disk: the level in force and how many readings in a row have been
+    /// above each threshold. Owned by <see cref="ThresholdRule"/>; this class only holds it.
+    /// </summary>
+    public ThresholdState Threshold { get; set; }
 
     /// <summary>
     /// For availability events, the moment of the last reading before the machine went

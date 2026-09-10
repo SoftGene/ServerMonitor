@@ -23,6 +23,18 @@ public enum AlertKind
     Recovered
 }
 
+/// <summary>How serious an event is.</summary>
+/// <remarks>
+/// Two levels rather than one, because a single threshold forces a bad choice: set it low and
+/// people learn to ignore the alerts, set it high and the first alert arrives when there is no
+/// time left to act. A warning says "worth watching"; critical says "do something".
+/// </remarks>
+public enum AlertSeverity
+{
+    Warning,
+    Critical
+}
+
 public class Alert
 {
     public int Id { get; set; }
@@ -41,4 +53,15 @@ public class Alert
     public double Value { get; set; }
     public double Threshold { get; set; }
     public AlertKind AlertType { get; set; }
+
+    /// <summary>
+    /// For <c>Triggered</c>, the level entered; for <c>Recovered</c>, the level that closed.
+    /// </summary>
+    /// <remarks>
+    /// Critical by default, which is also what every row written before levels existed is
+    /// migrated to: those alerts fired at the only threshold there was, and that threshold is
+    /// the critical one now. Availability events are always critical — a machine that has
+    /// stopped reporting is never merely "worth watching".
+    /// </remarks>
+    public AlertSeverity Severity { get; set; } = AlertSeverity.Critical;
 }

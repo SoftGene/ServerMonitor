@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using ServerMonitor.Domain.Entities;
 
 namespace ServerMonitor.Infrastructure.Alerting;
@@ -18,7 +18,11 @@ public class LogAlertChannel : IAlertChannel
 
     public Task SendAsync(AlertNotification notification, CancellationToken cancellationToken)
     {
-        var state = notification.Kind == AlertKind.Triggered ? "TRIGGERED" : "RECOVERED";
+        // The log level follows the severity, so filtering the log on Error finds every critical
+        // event and nothing else. A recovery is good news and is logged as information.
+        var level = notification.Kind == AlertKind.Recovered ? LogLevel.Information
+            : notification.Severity == AlertSeverity.Critical ? LogLevel.Error
+            : LogLevel.Warning;
 
         if (notification.Metric == MetricKind.Availability)
         {
@@ -26,18 +30,19 @@ public class LogAlertChannel : IAlertChannel
             // recovery reads as "still unreachable" and misleads.
             if (notification.Kind == AlertKind.Triggered)
             {
-                _logger.LogWarning(
-                    "Alert {State}: {Server} unreachable for {Minutes:F0} min (threshold {Threshold:F0} min).",
-                    state,
+                _logger.Log(
+                    level,
+                    "Alert {Severity}: {Server} unreachable for {Minutes:F0} min (threshold {Threshold:F0} min).",
+                    notification.Severity,
                     notification.ServerName,
                     notification.Value,
                     notification.Threshold);
             }
             else
             {
-                _logger.LogWarning(
-                    "Alert {State}: {Server} is reporting again after {Minutes:F0} min of silence.",
-                    state,
+                _logger.Log(
+                    level,
+                    "Alert recovered: {Server} is reporting again after {Minutes:F0} min of silence.",
                     notification.ServerName,
                     notification.Value);
             }
@@ -45,9 +50,23 @@ public class LogAlertChannel : IAlertChannel
             return Task.CompletedTask;
         }
 
-        _logger.LogWarning(
-            "Alert {State}: {Server} {Metric} at {Value:F1}% (threshold {Threshold:F0}%).",
-            state,
+        if (notification.Kind == AlertKind.Recovered)
+        {
+            _logger.Log(
+                level,
+                "Alert recovered: {Server} {Metric} back to {Value:F1}% after a {Severity} alert.",
+                notification.ServerName,
+                notification.Metric.ToDisplayName(),
+                notification.Value,
+                notification.Severity);
+
+            return Task.CompletedTask;
+        }
+
+        _logger.Log(
+            level,
+            "Alert {Severity}: {Server} {Metric} at {Value:F1}% (threshold {Threshold:F0}%).",
+            notification.Severity,
             notification.ServerName,
             notification.Metric.ToDisplayName(),
             notification.Value,

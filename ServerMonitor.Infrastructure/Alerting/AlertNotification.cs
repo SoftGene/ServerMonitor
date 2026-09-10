@@ -1,4 +1,4 @@
-﻿using ServerMonitor.Domain.Entities;
+using ServerMonitor.Domain.Entities;
 
 namespace ServerMonitor.Infrastructure.Alerting;
 
@@ -11,10 +11,15 @@ namespace ServerMonitor.Infrastructure.Alerting;
 /// <param name="Metric">The metric; <see cref="MetricKind.Availability"/> means an availability event.</param>
 /// <param name="Kind">Whether it started or ended.</param>
 /// <param name="Value">For thresholds, the metric in percent; for availability, minutes of silence.</param>
-/// <param name="Threshold">The threshold, in the same units as <paramref name="Value"/>.</param>
+/// <param name="Threshold">The threshold that was crossed, in the same units as <paramref name="Value"/>.</param>
+/// <param name="Severity">
+/// For a start, the level entered; for an end, the level that closed. Each channel decides how
+/// loudly to say it — which is the point of passing the fact rather than the sentence.
+/// </param>
 public record AlertNotification(
     string ServerName,
     MetricKind Metric,
     AlertKind Kind,
     double Value,
-    double Threshold);
+    double Threshold,
+    AlertSeverity Severity);

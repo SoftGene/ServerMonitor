@@ -21,9 +21,10 @@ Built as a learning project, then taken far enough to actually run on my own ser
   capped at five minutes.
 - **Shows the fleet at a glance.** Machines that have gone quiet are dimmed and marked, so a
   frozen reading is never mistaken for a live one.
-- **Alerts on thresholds.** CPU, memory and disk have configurable limits; alerting fires once
-  on the way up and once on the way back down, and needs several consecutive breaches so a
-  single spike stays quiet.
+- **Alerts at two levels.** CPU, memory and disk each have a warning and a critical threshold.
+  Going up a level takes several consecutive readings, so a single spike stays quiet; easing
+  back down is reported at once. A value that jumps straight to critical raises one alert,
+  not a warning and a critical a moment apart.
 - **Notices when a machine goes quiet.** A configurable silence threshold turns into an alert
   when an agent stops reporting, and another when it comes back. Rule checking is independent
   of delivery, so events are recorded even with no Telegram configured.
@@ -348,7 +349,8 @@ production software yet, and the gaps are deliberate rather than unknown:
 - **Nothing watches the monitor itself.** If the central API dies, no alert goes out — a
   system cannot report its own death. `/healthz` is there for an external uptime service to
   poll; pointing one at it is left to whoever deploys this.
-- **One offline threshold for the whole fleet**, and alerts have no severity levels.
+- **One offline threshold for the whole fleet.** A database server and a laptop that sleeps at
+  night are judged by the same length of silence.
 
 Roadmap: whatever running it for real turns up.
 

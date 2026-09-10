@@ -28,29 +28,54 @@
         <div class="settings-card">
             <div class="setting-section">
                 <h2>Alert Thresholds</h2>
-                <p class="section-hint">Get notified when usage exceeds these values (%)</p>
+                <p class="section-hint">A warning means worth watching; critical means do something (%)</p>
 
                 <div class="setting-row">
-                    <label>CPU threshold</label>
-                    <div class="input-wrap">
-                        <input type="number" min="1" max="100" @bind="settings.CpuThreshold" class="threshold-input" />
-                        <span class="unit">%</span>
+                    <label>CPU</label>
+                    <div class="threshold-pair">
+                        <span class="pair-label warn">warning</span>
+                        <div class="input-wrap">
+                            <input type="number" min="1" max="100" @bind="settings.CpuWarningThreshold" class="threshold-input" />
+                            <span class="unit">%</span>
+                        </div>
+                        <span class="pair-label crit">critical</span>
+                        <div class="input-wrap">
+                            <input type="number" min="1" max="100" @bind="settings.CpuThreshold" class="threshold-input" />
+                            <span class="unit">%</span>
+                        </div>
                     </div>
                 </div>
                 <div class="setting-row">
-                    <label>Memory threshold</label>
-                    <div class="input-wrap">
-                        <input type="number" min="1" max="100" @bind="settings.MemoryThreshold" class="threshold-input" />
-                        <span class="unit">%</span>
+                    <label>Memory</label>
+                    <div class="threshold-pair">
+                        <span class="pair-label warn">warning</span>
+                        <div class="input-wrap">
+                            <input type="number" min="1" max="100" @bind="settings.MemoryWarningThreshold" class="threshold-input" />
+                            <span class="unit">%</span>
+                        </div>
+                        <span class="pair-label crit">critical</span>
+                        <div class="input-wrap">
+                            <input type="number" min="1" max="100" @bind="settings.MemoryThreshold" class="threshold-input" />
+                            <span class="unit">%</span>
+                        </div>
                     </div>
                 </div>
                 <div class="setting-row">
-                    <label>Disk threshold</label>
-                    <div class="input-wrap">
-                        <input type="number" min="1" max="100" @bind="settings.DiskThreshold" class="threshold-input" />
-                        <span class="unit">%</span>
+                    <label>Disk</label>
+                    <div class="threshold-pair">
+                        <span class="pair-label warn">warning</span>
+                        <div class="input-wrap">
+                            <input type="number" min="1" max="100" @bind="settings.DiskWarningThreshold" class="threshold-input" />
+                            <span class="unit">%</span>
+                        </div>
+                        <span class="pair-label crit">critical</span>
+                        <div class="input-wrap">
+                            <input type="number" min="1" max="100" @bind="settings.DiskThreshold" class="threshold-input" />
+                            <span class="unit">%</span>
+                        </div>
                     </div>
                 </div>
+                <p class="row-hint">Set a warning equal to its critical threshold to switch warnings off for that metric</p>
             </div>
 
             <div class="setting-section">
@@ -227,11 +252,25 @@
     {
         if (settings is null) return;
 
-        if (settings.CpuThreshold < 1 || settings.CpuThreshold > 100 ||
-            settings.MemoryThreshold < 1 || settings.MemoryThreshold > 100 ||
-            settings.DiskThreshold < 1 || settings.DiskThreshold > 100)
+        double[] thresholds =
+        [
+            settings.CpuThreshold, settings.MemoryThreshold, settings.DiskThreshold,
+            settings.CpuWarningThreshold, settings.MemoryWarningThreshold, settings.DiskWarningThreshold
+        ];
+
+        if (thresholds.Any(threshold => threshold < 1 || threshold > 100))
         {
             saveMessage = "Thresholds must be between 1 and 100.";
+            saveSuccess = false;
+            return;
+        }
+
+        // The same rule the API enforces, checked here so the answer arrives before a round trip.
+        if (settings.CpuWarningThreshold > settings.CpuThreshold ||
+            settings.MemoryWarningThreshold > settings.MemoryThreshold ||
+            settings.DiskWarningThreshold > settings.DiskThreshold)
+        {
+            saveMessage = "A warning threshold cannot be above its critical threshold.";
             saveSuccess = false;
             return;
         }

@@ -276,3 +276,27 @@
     width: auto;
     text-align: left;
 }
+
+/* Warning and critical on one row, so the two are read as the pair they are. Wraps on a narrow
+   screen rather than pushing the critical input out of view. */
+.threshold-pair {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.pair-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.pair-label.warn {
+    color: var(--status-warn);
+}
+
+.pair-label.crit {
+    color: var(--status-crit);
+}

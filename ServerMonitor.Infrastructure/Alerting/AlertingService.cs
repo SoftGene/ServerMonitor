@@ -128,14 +128,23 @@ public class AlertingService : BackgroundService
                     }
 
                     var state = StateFor(serverId, kind);
-                    state.IsAlerting = true;
 
                     if (kind == MetricKind.Availability)
                     {
+                        state.IsAlerting = true;
+
                         // The event's Value records how many minutes the machine had been
                         // silent when it fired. Subtracting that from its timestamp gives
                         // back the moment of the last reading before it went quiet.
                         state.SilentSinceUtc = lastAlert.TimestampUtc.AddMinutes(-lastAlert.Value);
+                    }
+                    else
+                    {
+                        // The last event names the level still in force: easing from critical
+                        // is written as a warning being open precisely so this line can trust
+                        // it. The consecutive counts restart from zero, which errs towards not
+                        // repeating an announcement that has already gone out.
+                        state.Threshold = new ThresholdState(lastAlert.Severity, 0, 0);
                     }
                 }
             }
@@ -202,13 +211,16 @@ public class AlertingService : BackgroundService
             }
 
             await CheckThresholdAsync(dbContext, server.Id, server.Name, MetricKind.Cpu,
-                latest.CpuUsagePercent, settings.CpuThreshold, cancellationToken);
+                latest.CpuUsagePercent, settings.CpuWarningThreshold, settings.CpuThreshold,
+                cancellationToken);
 
             await CheckThresholdAsync(dbContext, server.Id, server.Name, MetricKind.Memory,
-                latest.MemoryUsagePercent, settings.MemoryThreshold, cancellationToken);
+                latest.MemoryUsagePercent, settings.MemoryWarningThreshold, settings.MemoryThreshold,
+                cancellationToken);
 
             await CheckThresholdAsync(dbContext, server.Id, server.Name, MetricKind.Disk,
-                latest.DiskUsagePercent, settings.DiskThreshold, cancellationToken);
+                latest.DiskUsagePercent, settings.DiskWarningThreshold, settings.DiskThreshold,
+                cancellationToken);
         }
 
         PruneRemovedServers(servers.Select(s => s.Id).ToHashSet());
@@ -242,7 +254,7 @@ public class AlertingService : BackgroundService
 
             await RaiseAsync(
                 dbContext, serverId, serverName, MetricKind.Availability, AlertKind.Triggered,
-                silentMinutes, thresholdMinutes, cancellationToken);
+                silentMinutes, thresholdMinutes, AlertSeverity.Critical, cancellationToken);
 
             return;
         }
@@ -259,7 +271,7 @@ public class AlertingService : BackgroundService
 
         await RaiseAsync(
             dbContext, serverId, serverName, MetricKind.Availability, AlertKind.Recovered,
-            downtimeMinutes, thresholdMinutes, cancellationToken);
+            downtimeMinutes, thresholdMinutes, AlertSeverity.Critical, cancellationToken);
     }
 
     private async Task CheckThresholdAsync(
@@ -268,35 +280,24 @@ public class AlertingService : BackgroundService
         string serverName,
         MetricKind kind,
         double value,
-        double threshold,
+        double warningThreshold,
+        double criticalThreshold,
         CancellationToken cancellationToken)
     {
         var state = StateFor(serverId, kind);
 
-        if (value > threshold)
+        // The decision lives in ThresholdRule, where it can be tested; this method only carries
+        // its result to the journal and the channels.
+        var (next, change) = ThresholdRule.Evaluate(
+            state.Threshold, value, warningThreshold, criticalThreshold,
+            _options.RequiredConsecutiveSamples);
+
+        state.Threshold = next;
+
+        if (change is { } happened)
         {
-            state.ConsecutiveHighSamples++;
-
-            // A single spike raises nothing: several consecutive breaches are required.
-            if (!state.IsAlerting && state.ConsecutiveHighSamples >= _options.RequiredConsecutiveSamples)
-            {
-                state.IsAlerting = true;
-
-                await RaiseAsync(dbContext, serverId, serverName, kind, AlertKind.Triggered,
-                    Math.Round(value, 1), threshold, cancellationToken);
-            }
-
-            return;
-        }
-
-        state.ConsecutiveHighSamples = 0;
-
-        if (state.IsAlerting)
-        {
-            state.IsAlerting = false;
-
-            await RaiseAsync(dbContext, serverId, serverName, kind, AlertKind.Recovered,
-                Math.Round(value, 1), threshold, cancellationToken);
+            await RaiseAsync(dbContext, serverId, serverName, kind, happened.Kind,
+                Math.Round(value, 1), happened.Threshold, happened.Severity, cancellationToken);
         }
     }
 
@@ -313,6 +314,7 @@ public class AlertingService : BackgroundService
         AlertKind alertKind,
         double value,
         double threshold,
+        AlertSeverity severity,
         CancellationToken cancellationToken)
     {
         dbContext.Alerts.Add(new Alert
@@ -322,12 +324,13 @@ public class AlertingService : BackgroundService
             MetricType = kind,
             Value = Math.Round(value, 1),
             Threshold = threshold,
-            AlertType = alertKind
+            AlertType = alertKind,
+            Severity = severity
         });
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var notification = new AlertNotification(serverName, kind, alertKind, value, threshold);
+        var notification = new AlertNotification(serverName, kind, alertKind, value, threshold, severity);
 
         foreach (var channel in _channels)
         {

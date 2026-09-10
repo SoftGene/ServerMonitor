@@ -46,7 +46,7 @@
         <div class="alerts-list">
             @foreach (var alert in alerts)
             {
-                <div class="alert-item @(alert.AlertType == "Triggered" ? "triggered" : "recovered")">
+                <div class="alert-item @ItemClass(alert)">
                     <div class="alert-icon">
                         @if (alert.MetricType == "Availability")
                         {
@@ -132,16 +132,27 @@
     }
 
     /// <summary>
-    /// An availability event reads differently from a threshold breach: "CPU exceeded
-    /// threshold" and "machine stopped reporting" mean different things, and identical
-    /// phrasing would mislead.
+    /// Warnings get their own colour. Painting every triggered event the same red is how a list
+    /// teaches its reader to stop telling them apart — and then the critical one gets missed.
+    /// </summary>
+    private static string ItemClass(Alert alert) => alert.AlertType switch
+    {
+        "Recovered" => "recovered",
+        _ when alert.Severity == "Warning" => "triggered warning",
+        _ => "triggered"
+    };
+
+    /// <summary>
+    /// An availability event reads differently from a threshold breach: "CPU critical" and
+    /// "machine stopped reporting" mean different things, and identical phrasing would mislead.
     /// </summary>
     private static string Title(Alert alert) => alert.MetricType switch
     {
         "Availability" => alert.AlertType == "Triggered"
             ? "stopped reporting"
             : "is reporting again",
-        _ => $"{alert.MetricType} {(alert.AlertType == "Triggered" ? "exceeded threshold" : "recovered")}"
+        _ when alert.AlertType == "Recovered" => $"{alert.MetricType} back to normal",
+        _ => $"{alert.MetricType} {(alert.Severity == "Warning" ? "warning" : "critical")}"
     };
 
     private static string Detail(Alert alert) => alert.MetricType switch
@@ -149,7 +160,8 @@
         "Availability" => alert.AlertType == "Triggered"
             ? $"Silent for {alert.Value:0.#} min · threshold {alert.Threshold:0.#} min"
             : $"Back after {alert.Value:0.#} min of silence",
-        _ => $"Value: {alert.Value}% · Threshold: {alert.Threshold}%"
+        _ when alert.AlertType == "Recovered" => $"Value: {alert.Value}% · below {alert.Threshold}%",
+        _ => $"Value: {alert.Value}% · {(alert.Severity == "Warning" ? "warning" : "critical")} threshold: {alert.Threshold}%"
     };
 
     private async Task Refresh()

@@ -71,11 +71,19 @@ public class TelegramAlertChannel : IAlertChannel
 
         var metric = n.Metric.ToDisplayName();
 
-        return n.Kind == AlertKind.Triggered
-            ? $"⚠️ <b>{metric} Alert</b> · {name}\n" +
-              $"{metric} usage is high: <b>{n.Value:F1}%</b> (threshold {n.Threshold:F0}%)"
-            : $"✅ <b>{metric} Recovered</b> · {name}\n" +
-              $"{metric} usage back to normal: <b>{n.Value:F1}%</b>";
+        if (n.Kind == AlertKind.Recovered)
+        {
+            return $"✅ <b>{metric} back to normal</b> · {name}\n" +
+                   $"{metric} usage is down to <b>{n.Value:F1}%</b>";
+        }
+
+        // Different symbols, not only different words: on a phone's lock screen the icon is read
+        // before the text, and it is what decides whether the message gets opened right now.
+        return n.Severity == AlertSeverity.Critical
+            ? $"🔴 <b>{metric} critical</b> · {name}\n" +
+              $"{metric} usage is at <b>{n.Value:F1}%</b> (critical threshold {n.Threshold:F0}%)"
+            : $"🟡 <b>{metric} warning</b> · {name}\n" +
+              $"{metric} usage is at <b>{n.Value:F1}%</b> (warning threshold {n.Threshold:F0}%)";
     }
 
     /// <summary>

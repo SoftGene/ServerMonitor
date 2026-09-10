@@ -77,6 +77,11 @@ public class AppDbContext : DbContext
                     kind => kind.ToString(),
                     value => Enum.Parse<AlertKind>(value, ignoreCase: true));
 
+            entity.Property(a => a.Severity)
+                .HasConversion(
+                    severity => severity.ToString(),
+                    value => Enum.Parse<AlertSeverity>(value, ignoreCase: true));
+
             entity.HasIndex(a => a.TimestampUtc);
 
             entity.HasOne<Server>()
@@ -98,6 +103,9 @@ public class AppDbContext : DbContext
             CpuThreshold = 90,
             MemoryThreshold = 90,
             DiskThreshold = 90,
+            CpuWarningThreshold = 75,
+            MemoryWarningThreshold = 75,
+            DiskWarningThreshold = 75,
             AlertsEnabled = true
         });
     }
