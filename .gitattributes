@@ -3,6 +3,12 @@
 ###############################################################################
 * text=auto
 
+# Shell scripts and systemd units are read on Linux, where a carriage return at the end of a line
+# becomes part of the command. They stay LF in a Windows checkout too, so a clone mounted into a
+# Linux container still runs.
+*.sh      text eol=lf
+*.service text eol=lf
+
 ###############################################################################
 # Set default behavior for command prompt diff.
 #
