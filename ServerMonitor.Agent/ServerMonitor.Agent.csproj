@@ -15,4 +15,10 @@
   <ItemGroup>
     <ProjectReference Include="..\ServerMonitor.Collection\ServerMonitor.Collection.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Development settings are for dotnet run on a developer's machine. Published, they would ship
+         to every watched machine and take effect the moment anyone there set DOTNET_ENVIRONMENT. -->
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
 </Project>
