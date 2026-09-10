@@ -64,3 +64,32 @@ jobs:
       # images here is the only thing that keeps that promise true as the Dockerfiles change.
       - name: Build images
         run: docker compose --env-file .env.example build
+
+  package:
+    name: Agent packages
+    # The same packages a release publishes, built for every pull request. A change that breaks
+    # packaging then fails here, in review, rather than on the day a release is tagged.
+    uses: ./.github/workflows/package-agent.yml
+    with:
+      version: 0.0.0-ci
+
+  scripts:
+    name: Install scripts
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # These run as root on other people's machines, and a shell script's mistakes surface only at
+      # run time: an unquoted variable, a failure silently ignored. shellcheck finds most of that
+      # class without running anything.
+      - name: shellcheck
+        run: shellcheck deploy/install.sh deploy/agent/install.sh
+
+      - name: PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          $issues = Invoke-ScriptAnalyzer -Path deploy/agent/install.ps1 -Severity Warning, Error
+          $issues | Format-Table -AutoSize
+          if ($issues) { exit 1 }
