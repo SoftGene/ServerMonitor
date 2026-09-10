@@ -38,8 +38,9 @@ Built as a learning project, then taken far enough to actually run on my own ser
 - **Keeps the shape of a year without keeping a year of rows.** Every finished hour is reduced
   to one summary row — average, peak and sample count — before the raw readings age out, so a
   trend from months ago still reads while the table stops growing.
-- **Ships as containers.** `docker compose up -d` brings up the database, the API and the
-  dashboard, and exposes `/healthz` for an external uptime check.
+- **Installs in one command.** A script sets up the whole server on Ubuntu, and the dashboard hands
+  out a ready command for every new machine, Linux or Windows. Underneath, the server is three
+  containers and a `/healthz` endpoint for an external uptime check.
 
 ### Fleet
 
@@ -90,16 +91,115 @@ No UI framework: the interface is hand-written CSS, and the charts are inline SV
 
 ---
 
-## Quick start
+## Install
 
-The whole server — database, API and dashboard — in one command. Docker is the only
-prerequisite.
+On an Ubuntu server, one command sets up everything: Docker if it is missing, the database, the
+API, the dashboard, and an agent watching the server itself.
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/SoftGene/ServerMonitor/master/deploy/install.sh | sudo bash
+```
+
+It generates the secrets, builds and starts the containers, and finishes by printing the
+dashboard's address. Open it and create the account: the first visit asks for one, and
+registration closes afterwards.
+
+**To watch another machine,** choose **Add a machine** on the dashboard and run the command it
+shows on that machine. There is one for Linux and one for Windows, with this server's address and
+token already in them.
+
+**To update,** run the install command again. The code is pulled and rebuilt; the data and the
+secrets stay.
+
+The script is written for Ubuntu Server and should work on any apt-based system. Anywhere else, see
+[Installing by hand](#installing-by-hand).
+
+> The agent is deliberately not part of the compose file. In a container it would measure the
+> container rather than the host: memory capped by the cgroup, disk being an image layer. The
+> numbers would look plausible and be wrong.
+
+---
+
+## Telegram alerts
+
+Optional. Without Telegram every alert is still recorded and shown on the Alerts page.
+
+1. In Telegram, message [@BotFather](https://t.me/BotFather), send `/newbot` and follow its
+   prompts. It gives you a token that looks like `123456789:AAE...`.
+2. Give the token to the server. The installer asks for it on its first run; at any time later:
+
+   ```bash
+   sudo bash /opt/servermonitor/deploy/install.sh --telegram-token '<the token>'
+   ```
+
+3. Send your new bot any message. It replies with your chat ID: until a chat is configured, that
+   is the only thing it answers.
+4. Tell the server the ID:
+
+   ```bash
+   sudo bash /opt/servermonitor/deploy/install.sh --telegram-chat-id <your chat ID>
+   ```
+
+The bot announces itself in that chat and reports alerts there from then on. It answers `/status`
+with the state of the fleet, and only in that chat: a bot is public, and anyone else who finds it
+gets no reply.
+
+For a group rather than a private chat, add the bot to the group and send `/start` there. The
+group's ID starts with a minus sign.
+
+---
+
+## Running it on a server
+
+A few things worth knowing once other machines on the network start talking to it.
+
+**Addresses.** The dashboard is at `http://<server-ip>:5298`, and agents on other machines report to
+`http://<server-ip>:7212`. Both are plain HTTP: fine on a network you trust, and a reason to put a
+reverse proxy with TLS in front before exposing it any further. Behind a proxy, set
+`PUBLIC_API_URL` in `.env`, so the **Add a machine** commands point at the address agents can
+actually reach.
+
+**The database is not published to the network.** It is bound to `127.0.0.1` only, and the reason
+is worth knowing: Docker writes its own firewall rules for the ports it publishes, so a `ufw` rule
+on the host does not close a port compose has opened. The binding is what actually closes it.
+
+**Sign-ins survive a rebuild.** The key ring that encrypts cookies is kept on a volume, so
+`docker compose up -d --build` does not sign everyone out.
+
+**Where things are.** The installer puts the server in `/opt/servermonitor`. Its `.env` holds the
+generated secrets, readable by root alone, and deserves a copy somewhere safe: the database
+password in it is the only one that opens the existing database. Compose commands run from that
+folder, with `sudo`:
+
+```bash
+cd /opt/servermonitor
+sudo docker compose ps
+```
+
+**A forgotten password** is reset from the server, which also ends every session that account has
+open:
+
+```bash
+cd /opt/servermonitor
+sudo docker compose run --rm api reset-password <username>
+```
+
+**The data** lives in the `postgres_data` volume and survives updates and rebuilds.
+`docker compose down -v` does not keep it: the `-v` deletes volumes.
+
+---
+
+## Installing by hand
+
+Anywhere with Docker, without the install script:
+
+```bash
+git clone https://github.com/SoftGene/ServerMonitor.git
+cd ServerMonitor
 cp .env.example .env
 ```
 
-Fill in the three secrets it asks for, generating the two random ones with:
+Fill in the three secrets it asks for, generating the random ones with:
 
 ```bash
 openssl rand -hex 32
@@ -111,43 +211,8 @@ Then:
 docker compose up -d
 ```
 
-The dashboard is at `http://localhost:5298`. The first visit asks you to create an account;
-registration closes afterwards. Migrations are applied automatically on startup, so there is no
-separate database step.
-
-To watch a machine, install the agent on it — see [Adding a machine](#adding-a-machine).
-
-> The agent is deliberately not part of the compose file. In a container it would measure the
-> container rather than the host: memory capped by the cgroup, disk being an image layer. The
-> numbers would look plausible and be wrong.
-
----
-
-## Running it on a server
-
-The quick start works unchanged on a Linux machine with Docker. A few things are worth knowing
-before other machines on the network start talking to it.
-
-**Addresses.** The dashboard is at `http://<server-ip>:5298`, and agents on other machines report to
-`http://<server-ip>:7212`. Both are plain HTTP: fine on a network you trust, and a reason to put a
-reverse proxy with TLS in front before exposing it any further.
-
-**The database is not published to the network.** It is bound to `127.0.0.1` only, and the reason
-is worth knowing: Docker writes its own firewall rules for the ports it publishes, so a `ufw` rule
-on the host does not close a port compose has opened. The binding is what actually closes it.
-
-**Sign-ins survive a rebuild.** The key ring that encrypts cookies is kept on a volume, so
-`docker compose up -d --build` does not sign everyone out.
-
-**Updating:**
-
-```bash
-git pull
-docker compose up -d --build
-```
-
-The data lives in the `postgres_data` volume and survives that. `docker compose down -v` does not
-keep it: the `-v` deletes volumes.
+The dashboard is at `http://localhost:5298`. Migrations are applied automatically on startup, so
+there is no separate database step. To update, `git pull` and then `docker compose up -d --build`.
 
 ---
 
@@ -199,7 +264,8 @@ dotnet user-secrets set "Api:ServiceKey" "<another random string>" --project Ser
 dotnet user-secrets set "ApiSettings:ServiceKey" "<the same string>" --project ServerMonitor.Web
 ```
 
-Telegram is optional. Without it the bot stays disabled:
+Telegram is optional. Without a token the bot stays disabled; with a token and no chat ID it
+answers any message with the sender's chat ID and nothing else:
 
 ```bash
 dotnet user-secrets set "Telegram:BotToken" "<token from @BotFather>" --project ServerMonitor.Api
@@ -235,26 +301,40 @@ reference at `https://localhost:7212/scalar/v1`.
 
 ## Adding a machine
 
+**Add a machine** on the dashboard is the easy way. What its commands do, for doing it differently:
+
 ### On Linux
 
-One script does it: it builds a self-contained agent (inside Docker, so the machine needs no .NET),
-installs it as a systemd service under its own user, and waits until the agent has actually
-registered rather than merely started.
+`deploy/agent/install.sh` downloads a self-contained agent from the latest release, so the machine
+needs no .NET, checks it against the release's checksums, installs it as a systemd service under its
+own user, and waits until the agent has actually registered rather than merely started.
 
 ```bash
-git clone https://github.com/SoftGene/ServerMonitor.git
-cd ServerMonitor
-sudo ./deploy/agent/install.sh
+curl -fsSL https://raw.githubusercontent.com/SoftGene/ServerMonitor/master/deploy/agent/install.sh | sudo bash -s -- --url http://<server-ip>:7212 --token <token>
 ```
 
-It asks for the API address and the enrollment token, `ENROLLMENT_TOKEN` in the server's `.env`.
-Running it again upgrades in place and keeps the machine's identity. An unreachable server is
-retried; a refused token stops the service instead of retrying forever, and
-`systemctl status servermonitor-agent` says why.
+The token is `ENROLLMENT_TOKEN` in the server's `.env`. Running it again upgrades in place and keeps
+the machine's identity. An unreachable server is retried; a refused token stops the service instead
+of retrying forever, and `systemctl status servermonitor-agent` says why. `--uninstall` removes the
+agent, `--from-source` builds it from a clone instead of downloading it, and `--help` lists the rest.
+
+### On Windows
+
+`deploy/agent/install.ps1` does the same from PowerShell opened as Administrator. It installs the
+agent under Program Files, readable only by SYSTEM and Administrators, and registers a scheduled task
+that starts it at boot:
+
+```powershell
+& ([scriptblock]::Create((Invoke-RestMethod 'https://raw.githubusercontent.com/SoftGene/ServerMonitor/master/deploy/agent/install.ps1'))) -Url 'http://<server-ip>:7212' -Token '<token>'
+```
+
+It runs as a script block rather than a downloaded file, so the execution policy needs no
+loosening. `-Uninstall` removes the agent again.
 
 ### By hand
 
-Publish the agent and copy it to the machine you want to watch:
+Download the agent for your platform from
+[Releases](https://github.com/SoftGene/ServerMonitor/releases), or publish it yourself:
 
 ```bash
 dotnet publish ServerMonitor.Agent -c Release -r linux-x64 --self-contained false -o ./agent-publish
@@ -349,6 +429,25 @@ Raise `EnrollmentPerHour` while rolling out a fleet; a machine registers once in
 
 ---
 
+## Releases
+
+The installers download the agent from the latest GitHub release, so publishing one is what carries
+a change in the agent to the machines being watched. Tag a commit on master that the build has
+passed:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The release workflow builds self-contained agents for `linux-x64`, `linux-arm64` and `win-x64` and
+publishes them with a `SHA256SUMS` file, which the installers check downloads against. A tag with a
+suffix, such as `v1.1.0-rc.1`, becomes a pre-release, and installers skip it. Every pull request
+builds the same packages, so a change that breaks packaging fails in review rather than on release
+day. Until a first release exists, `deploy/install.sh` builds the server's own agent from source.
+
+---
+
 ## Tests
 
 ```bash
@@ -375,6 +474,9 @@ Two collector tests read real `/proc` and take a second of wall time, so they ar
 SERVERMONITOR_RUN_COLLECTOR_TESTS=1 dotnet test
 ```
 
+The install scripts are checked on every pull request as well: shellcheck for the shell scripts,
+PSScriptAnalyzer for the PowerShell one.
+
 ---
 
 ## Status and limits
@@ -382,9 +484,9 @@ SERVERMONITOR_RUN_COLLECTOR_TESTS=1 dotnet test
 It runs, it keeps history, and it has been watching a real machine for weeks. It is not
 production software yet, and the gaps are deliberate rather than unknown:
 
-- **The enrollment token never expires**, agent keys cannot be rotated, and neither can the
-  service key without editing both configurations. Guessing it is now rate limited, which bounds
-  the attack without removing it.
+- **The enrollment token never expires**, and every account can read it on the **Add a machine**
+  page. Agent keys cannot be rotated, and neither can the service key without editing both
+  configurations. Guessing the token is rate limited, which bounds the attack without removing it.
 - **Accounts have no roles.** Every account can do everything, and splitting permissions is a
   separate job worth doing once there is a reason for it.
 - **Summaries are hourly and that is the only resolution.** A real time-series database keeps
