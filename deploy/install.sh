@@ -121,23 +121,43 @@ check_for_another_copy() {
   project="$(basename "$dir" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')"
 
   if [[ ! -f "$dir/.env" ]] && docker volume inspect "${project}_postgres_data" >/dev/null 2>&1; then
-    die "a database from an earlier install is still here (volume ${project}_postgres_data), and only that install's .env holds its password. Put that file at $dir/.env and run this again."
+    die "a database from an earlier install is still here (volume ${project}_postgres_data), and only that install's .env holds its password. Copy that file to $dir/.env (sudo mkdir -p $dir first) and run this again."
   fi
 }
 
 checkout() {
-  local dir="$1"
+  local dir="$1" contents=""
 
   if [[ -d "$dir/.git" ]]; then
     info "Updating the code in $dir"
     git -C "$dir" pull --ff-only --quiet \
       || die "could not update $dir; if files there were changed, 'git -C $dir status' shows which"
-  elif [[ -e "$dir" && -n "$(ls -A "$dir" 2>/dev/null)" ]]; then
-    die "$dir already exists and is not a copy of ServerMonitor; choose another place with --dir"
-  else
-    info "Downloading the code to $dir"
-    git clone --quiet --depth 1 "$REPO_URL" "$dir"
+    return
   fi
+
+  [[ ! -e "$dir" || -d "$dir" ]] || die "$dir exists and is not a folder"
+  if [[ -d "$dir" ]]; then
+    contents="$(ls -A "$dir")"
+  fi
+
+  # An .env on its own is expected: it is how an earlier install's secrets, and with them its
+  # database, are carried over. Anything else there belongs to someone, and is left alone.
+  if [[ -n "$contents" && "$contents" != ".env" ]]; then
+    die "$dir already exists and is not a copy of ServerMonitor; choose another place with --dir"
+  fi
+
+  info "Downloading the code to $dir"
+  # Cloned beside the folder and then moved into place, because git clones only into an empty one.
+  local staging="$dir.download-$$"
+  rm -rf "$staging"
+  git clone --quiet --depth 1 "$REPO_URL" "$staging" || die "could not download the code from $REPO_URL"
+  if [[ -f "$dir/.env" ]]; then
+    mv "$dir/.env" "$staging/.env"
+  fi
+  if [[ -d "$dir" ]]; then
+    rmdir "$dir"
+  fi
+  mv "$staging" "$dir"
 }
 
 env_get() {
