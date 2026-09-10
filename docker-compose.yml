@@ -33,7 +33,11 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=servermonitor;Username=monitor;Password=${POSTGRES_PASSWORD}"
+      # GSS encryption off. The database sits on the compose network behind a password, so Kerberos
+      # has nothing to do here - and the runtime image carries no GSSAPI library, so attempting it
+      # prints "Cannot load library libgssapi_krb5.so.2" on connecting, which reads like a failure
+      # when nothing is wrong.
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=servermonitor;Username=monitor;Password=${POSTGRES_PASSWORD};GSS Encryption Mode=Disable"
       Agents__EnrollmentToken: ${ENROLLMENT_TOKEN:?set ENROLLMENT_TOKEN in .env}
       Api__ServiceKey: ${SERVICE_KEY:?set SERVICE_KEY in .env}
       # Optional. Leave empty and alerting still records every event in the journal.
