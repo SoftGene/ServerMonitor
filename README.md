@@ -123,6 +123,34 @@ To watch a machine, install the agent on it — see [Adding a machine](#adding-a
 
 ---
 
+## Running it on a server
+
+The quick start works unchanged on a Linux machine with Docker. A few things are worth knowing
+before other machines on the network start talking to it.
+
+**Addresses.** The dashboard is at `http://<server-ip>:5298`, and agents on other machines report to
+`http://<server-ip>:7212`. Both are plain HTTP: fine on a network you trust, and a reason to put a
+reverse proxy with TLS in front before exposing it any further.
+
+**The database is not published to the network.** It is bound to `127.0.0.1` only, and the reason
+is worth knowing: Docker writes its own firewall rules for the ports it publishes, so a `ufw` rule
+on the host does not close a port compose has opened. The binding is what actually closes it.
+
+**Sign-ins survive a rebuild.** The key ring that encrypts cookies is kept on a volume, so
+`docker compose up -d --build` does not sign everyone out.
+
+**Updating:**
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+The data lives in the `postgres_data` volume and survives that. `docker compose down -v` does not
+keep it: the `-v` deletes volumes.
+
+---
+
 ## Running from source
 
 For working on the code rather than just running it.
@@ -206,6 +234,25 @@ reference at `https://localhost:7212/scalar/v1`.
 ---
 
 ## Adding a machine
+
+### On Linux
+
+One script does it: it builds a self-contained agent (inside Docker, so the machine needs no .NET),
+installs it as a systemd service under its own user, and waits until the agent has actually
+registered rather than merely started.
+
+```bash
+git clone https://github.com/SoftGene/ServerMonitor.git
+cd ServerMonitor
+sudo ./deploy/agent/install.sh
+```
+
+It asks for the API address and the enrollment token, `ENROLLMENT_TOKEN` in the server's `.env`.
+Running it again upgrades in place and keeps the machine's identity. An unreachable server is
+retried; a refused token stops the service instead of retrying forever, and
+`systemctl status servermonitor-agent` says why.
+
+### By hand
 
 Publish the agent and copy it to the machine you want to watch:
 

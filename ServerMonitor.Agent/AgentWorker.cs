@@ -17,6 +17,10 @@ public class AgentWorker : BackgroundService
     private readonly MetricBuffer _buffer;
     private readonly BufferStore _bufferStore;
     private readonly string _statePath;
+    private readonly IHostApplicationLifetime _lifetime;
+
+    /// <summary>EX_CONFIG from sysexits.h: a configuration the agent cannot work with.</summary>
+    private const int ConfigurationErrorExitCode = 78;
 
     /// <summary>
     /// The shortest gap between two writes of the buffer to disk.
@@ -35,12 +39,14 @@ public class AgentWorker : BackgroundService
         AgentClient client,
         IOptions<AgentOptions> options,
         ILogger<AgentWorker> logger,
-        ILogger<BufferStore> storeLogger)
+        ILogger<BufferStore> storeLogger,
+        IHostApplicationLifetime lifetime)
     {
         _collector = collector;
         _client = client;
         _options = options.Value;
         _logger = logger;
+        _lifetime = lifetime;
         _buffer = new MetricBuffer(_options.BufferCapacity);
         _statePath = Path.Combine(AppContext.BaseDirectory, "agent-state.json");
         _bufferStore = new BufferStore(
@@ -53,7 +59,8 @@ public class AgentWorker : BackgroundService
 
         if (state is null)
         {
-            // With no registration there is nowhere to send. The reason is already logged.
+            // Shutdown was requested while waiting to register, or the configuration cannot work.
+            // The second case has already said why, set the exit code and asked the host to stop.
             return;
         }
 
@@ -191,27 +198,104 @@ public class AgentWorker : BackgroundService
 
         if (string.IsNullOrWhiteSpace(_options.EnrollmentToken))
         {
-            _logger.LogError(
-                "Agent is not registered and Agent:EnrollmentToken is not configured. Nothing to do.");
+            _logger.LogCritical(
+                "Agent is not registered and Agent:EnrollmentToken is not configured. Stopping.");
+
+            StopWithConfigurationError();
 
             return null;
         }
 
-        try
+        var retryDelay = _options.CollectInterval;
+
+        while (!cancellationToken.IsCancellationRequested)
         {
-            state = await _client.RegisterAsync(_options.EnrollmentToken, cancellationToken);
+            AgentState issued;
 
-            await state.SaveAsync(_statePath, cancellationToken);
+            try
+            {
+                issued = await _client.RegisterAsync(_options.EnrollmentToken, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+            catch (Exception ex) when (RegistrationFailure.IsPermanent(ex))
+            {
+                // Retrying a refused token only repeats the refusal, and staying up would look to
+                // systemd like a healthy agent that simply never appears in the fleet.
+                _logger.LogCritical(
+                    ex,
+                    "The server refused the enrollment token. Retrying cannot fix that: compare "
+                    + "Agent:EnrollmentToken with ENROLLMENT_TOKEN on the server. Stopping.");
 
-            _logger.LogInformation("Agent registered as {ServerId}.", state.ServerId);
+                StopWithConfigurationError();
 
-            return state;
+                return null;
+            }
+            catch (Exception ex)
+            {
+                // Unreachable, restarting, rate limited: all of these pass on their own. It is the
+                // ordinary case at boot, when the agent can easily start before the server does.
+                retryDelay = Min(retryDelay + retryDelay, _options.MaxRetryDelay);
+
+                _logger.LogWarning(
+                    ex,
+                    "Registration failed; retrying in about {Seconds:F0} s.",
+                    retryDelay.TotalSeconds);
+
+                try
+                {
+                    await Task.Delay(WithJitter(retryDelay), cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    return null;
+                }
+
+                continue;
+            }
+
+            try
+            {
+                await issued.SaveAsync(_statePath, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // The server has issued a key and this machine now exists in the fleet, but nothing
+                // here remembers it. Registering again would add the same machine a second time,
+                // and retrying would add a third. Stopping is the only move that does no harm.
+                _logger.LogCritical(
+                    ex,
+                    "Registered as {ServerId} but could not save {Path}. Stopping rather than "
+                    + "registering the same machine again.",
+                    issued.ServerId,
+                    _statePath);
+
+                StopWithConfigurationError();
+
+                return null;
+            }
+
+            _logger.LogInformation("Agent registered as {ServerId}.", issued.ServerId);
+
+            return issued;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Registration failed.");
 
-            return null;
-        }
+        return null;
+    }
+
+    /// <summary>
+    /// Stops the process with exit status 78, EX_CONFIG from sysexits.h.
+    /// </summary>
+    /// <remarks>
+    /// A distinct status rather than a plain failure, so a supervisor can tell "misconfigured" from
+    /// "crashed": the systemd unit sets RestartPreventExitStatus=78 and stops restarting an agent
+    /// that no restart can fix.
+    /// </remarks>
+    private void StopWithConfigurationError()
+    {
+        Environment.ExitCode = ConfigurationErrorExitCode;
+        _lifetime.StopApplication();
     }
 }

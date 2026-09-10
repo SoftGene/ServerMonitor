@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using ServerMonitor.Web.Auth;
 using ServerMonitor.Web.Components;
 using ServerMonitor.Web.Endpoints;
@@ -9,6 +10,21 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// The key ring that encrypts sign-in cookies and antiforgery tokens. By default it lives in the
+// user profile, which inside a container is gone on every rebuild: everyone signed out, and any
+// login form open at that moment refused. Pointing it at a mounted volume keeps it. Left unset,
+// as in local development, the framework default applies.
+var keysPath = builder.Configuration["DataProtection:KeysPath"];
+
+if (!string.IsNullOrWhiteSpace(keysPath))
+{
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(keysPath))
+        // Named explicitly rather than derived from the content root path, so the keys stay
+        // readable if the app is ever started from a different directory.
+        .SetApplicationName("ServerMonitor.Web");
+}
 
 var baseUrl = builder.Configuration["ApiSettings:BaseUrl"]
     ?? throw new InvalidOperationException("ApiSettings:BaseUrl is not configured.");
