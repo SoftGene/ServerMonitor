@@ -16,6 +16,12 @@ COPY ServerMonitor.Api/ ServerMonitor.Api/
 RUN dotnet publish ServerMonitor.Api/ServerMonitor.Api.csproj -c Release -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+
+# curl for the health check in docker-compose.yml. The runtime image carries neither curl nor wget,
+# so the check that called wget failed from the start, and Docker reported an API that was answering
+# /healthz perfectly well as unhealthy.
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY --from=build /app .
 
