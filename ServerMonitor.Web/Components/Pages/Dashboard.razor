@@ -51,12 +51,9 @@
             }
         </div>
         <div class="header-actions">
-            <div class="cube-wrap" title="@MachineState.Label(server?.Health)" aria-hidden="true">
-                <div class="cube @(IsFlowing ? "" : "paused")">
-                    <span class="cf cf-1"></span><span class="cf cf-2"></span><span class="cf cf-3"></span>
-                    <span class="cf cf-4"></span><span class="cf cf-5"></span><span class="cf cf-6"></span>
-                </div>
-            </div>
+            @* Drawn by js/cube.js, which explains why it is not CSS 3D. *@
+            <sm-cube class="cube" data-flowing="@(IsFlowing ? "true" : "false")"
+                     title="@MachineState.Label(server?.Health)" aria-hidden="true"></sm-cube>
             <button class="icon-btn @(isRefreshing ? "spinning" : "")" @onclick="RefreshNow" title="Refresh now">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>
             </button>
