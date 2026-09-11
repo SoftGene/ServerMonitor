@@ -37,7 +37,6 @@ public class MetricsApiClient
         return await response.Content.ReadFromJsonAsync<ServerSummary>(cancellationToken);
     }
 
-    /// <summary>Deletes a machine together with its entire history. This cannot be undone.</summary>
     /// <summary>
     /// Sets a machine's own silence threshold, or returns it to the fleet default with null.
     /// Returns the reason for a refusal, or null on success.
@@ -79,6 +78,7 @@ public class MetricsApiClient
         return string.IsNullOrWhiteSpace(reason) ? "The machine could not be renamed." : reason;
     }
 
+    /// <summary>Deletes a machine together with its entire history. This cannot be undone.</summary>
     public async Task<bool> DeleteServerAsync(Guid serverId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.DeleteAsync($"api/servers/{serverId}", cancellationToken);
@@ -125,6 +125,17 @@ public class MetricsApiClient
             $"api/servers/{serverId}/metrics/trend?days={days}", cancellationToken);
 
         return items ?? new List<MetricTrendItem>();
+    }
+
+    /// <summary>
+    /// The enrollment token, for the page that shows install commands. Null when the server has
+    /// registration switched off.
+    /// </summary>
+    public async Task<string?> GetEnrollmentTokenAsync(CancellationToken cancellationToken = default)
+    {
+        var info = await _httpClient.GetFromJsonAsync<EnrollmentInfo>("api/agents/enrollment", cancellationToken);
+
+        return info?.Token;
     }
 
     public async Task<AppSettings?> GetSettingsAsync(CancellationToken cancellationToken = default)

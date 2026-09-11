@@ -45,24 +45,35 @@ public class TelegramBotService : BackgroundService
         var token = _configuration["Telegram:BotToken"];
         _chatId = _configuration["Telegram:ChatId"];
 
-        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(_chatId))
+        if (string.IsNullOrWhiteSpace(token))
         {
-            // Only command handling stops here. Rule checking lives elsewhere and keeps
-            // running.
-            _logger.LogWarning("Telegram bot token or chat ID is not configured. Bot commands disabled.");
+            // Only command handling stops here. Rule checking lives elsewhere and keeps running.
+            _logger.LogWarning("Telegram bot token is not configured. Bot commands disabled.");
             return;
         }
 
         _botClient = new TelegramBotClient(token);
 
-        try
+        if (string.IsNullOrWhiteSpace(_chatId))
         {
-            await _botClient.SendMessage(
-                _chatId, "🟢 Server Monitor started. Alerts are active.", cancellationToken: stoppingToken);
+            // Setup mode. With a token and no chat ID the bot used not to start at all, leaving a new
+            // owner no way to learn their chat ID from inside Telegram. Now it starts, answers any
+            // message with the sender's own ID, and serves nothing else until the ID is configured.
+            _logger.LogWarning(
+                "Telegram bot is in setup mode: no chat ID is configured. Send the bot any message "
+                + "and it replies with the chat ID to put into TELEGRAM_CHAT_ID.");
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogError(ex, "Failed to send Telegram startup message.");
+            try
+            {
+                await _botClient.SendMessage(
+                    _chatId, "🟢 Server Monitor started. Alerts are active.", cancellationToken: stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send Telegram startup message.");
+            }
         }
 
         var receiverOptions = new ReceiverOptions
@@ -96,12 +107,31 @@ public class TelegramBotService : BackgroundService
         if (update.Message is not { Text: { } messageText } message)
             return;
 
-        // Reply only into the configured chat: otherwise anyone who finds the bot could ask
-        // /status and receive the server's metrics.
-        if (!string.Equals(message.Chat.Id.ToString(), _chatId, StringComparison.Ordinal))
+        switch (TelegramAccess.Classify(_chatId, message.Chat.Id))
         {
-            _logger.LogWarning("Ignored command from unauthorized chat {ChatId}.", message.Chat.Id);
-            return;
+            case TelegramAccess.Decision.Ignore:
+                // Reply only into the configured chat: otherwise anyone who finds the bot could ask
+                // /status and receive the server's metrics.
+                _logger.LogWarning("Ignored command from unauthorized chat {ChatId}.", message.Chat.Id);
+                return;
+
+            case TelegramAccess.Decision.SetupHint:
+                _logger.LogInformation("Setup mode: told chat {ChatId} its ID.", message.Chat.Id);
+
+                try
+                {
+                    await bot.SendMessage(
+                        message.Chat.Id,
+                        TelegramAccess.SetupHint(message.Chat.Id),
+                        parseMode: ParseMode.Html,
+                        cancellationToken: cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send the setup hint.");
+                }
+
+                return;
         }
 
         var command = messageText.Split(' ')[0].ToLower();
@@ -139,14 +169,10 @@ public class TelegramBotService : BackgroundService
             .AsNoTracking()
             .FirstOrDefaultAsync(cancellationToken);
 
-        var offlineAfter = settings is null
-            ? ServerHealthCalculator.OfflineAfter
-            : TimeSpan.FromSeconds(Math.Max(1, settings.OfflineAfterSeconds));
-
         var servers = await dbContext.Servers
             .AsNoTracking()
             .OrderBy(s => s.Name)
-            .Select(s => new { s.Id, s.Name, s.LastSeenUtc })
+            .Select(s => new { s.Id, s.Name, s.LastSeenUtc, s.OfflineAfterSeconds })
             .ToListAsync(cancellationToken);
 
         if (servers.Count == 0)
@@ -164,6 +190,12 @@ public class TelegramBotService : BackgroundService
                 .Where(m => m.ServerId == server.Id)
                 .OrderByDescending(m => m.TimestampUtc)
                 .FirstOrDefaultAsync(cancellationToken);
+
+            // The machine's own silence threshold when it has one, as on the dashboard. Reading the
+            // fleet default here called a laptop allowed to sleep offline in Telegram while the
+            // dashboard, correctly, called it stale.
+            var offlineAfter = ServerHealthCalculator.ResolveOfflineAfter(
+                server.OfflineAfterSeconds, settings?.OfflineAfterSeconds);
 
             var marker = ServerHealthCalculator.FromLastSeen(
                 server.LastSeenUtc, nowUtc, offlineAfter: offlineAfter) switch

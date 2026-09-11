@@ -23,9 +23,12 @@
                 </p>
             }
         </div>
-        <button class="icon-btn @(isRefreshing ? "spinning" : "")" @onclick="RefreshNow" title="Refresh now">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>
-        </button>
+        <div class="header-actions">
+            <a class="add-btn" href="add-machine">+ Add a machine</a>
+            <button class="icon-btn @(isRefreshing ? "spinning" : "")" @onclick="RefreshNow" title="Refresh now">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>
+            </button>
+        </div>
     </header>
 
     @if (loadError is not null)
@@ -40,24 +43,11 @@
     {
         <div class="section-label"><span class="section-no">01</span>No agents yet</div>
         <div class="empty-rack">
-            <p class="empty-lead">Nothing is reporting. Install the agent on a machine and it appears here within seconds.</p>
-            <ol class="install-steps">
-                <li>
-                    <span class="step-text">Give the agent the enrollment token</span>
-                    <code>dotnet user-secrets set "Agent:EnrollmentToken" "&lt;token&gt;" --project ServerMonitor.Agent</code>
-                </li>
-                <li>
-                    <span class="step-text">Point it at this API</span>
-                    <code>Agent__ServerUrl=https://your-monitor:7212</code>
-                </li>
-                <li>
-                    <span class="step-text">Run it</span>
-                    <code>dotnet run --project ServerMonitor.Agent</code>
-                </li>
-            </ol>
+            <p class="empty-lead">Nothing is reporting yet. Install the agent on a machine you want to watch and it appears here within seconds.</p>
+            <a class="add-btn" href="add-machine">+ Add a machine</a>
             <p class="empty-note">
-                The token is shared and needed only once per machine — after registration the agent
-                works from its own key, stored next to the binary.
+                One command for Linux or Windows, with this server's address and enrollment token already in
+                it. After registering, each agent works from a key of its own.
             </p>
         </div>
     }

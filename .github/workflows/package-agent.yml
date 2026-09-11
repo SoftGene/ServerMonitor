@@ -1,0 +1,75 @@
+# Builds the agent packages the installers download: one self-contained executable per platform,
+# archived together with what the installer needs beside it.
+#
+# Reusable, because two workflows need exactly the same packages. The pull request build runs it so
+# that a change which breaks packaging fails in review; the release workflow runs it and publishes
+# what it produced.
+name: package agent
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Version stamped into the agent, without the leading v.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: ${{ matrix.rid }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        rid: [linux-x64, linux-arm64, win-x64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # Self-contained, so a watched machine needs no .NET installed, and a single file, so an
+      # installer has one executable to put in place. All three are built on Linux: the agent is
+      # plain managed code and needs nothing from the target platform's own toolchain.
+      - name: Publish
+        env:
+          RID: ${{ matrix.rid }}
+          VERSION: ${{ inputs.version }}
+        run: >-
+          dotnet publish ServerMonitor.Agent
+          --configuration Release
+          --runtime "$RID"
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:Version="$VERSION"
+          --output "out/$RID"
+
+      - name: Archive
+        env:
+          RID: ${{ matrix.rid }}
+        run: |
+          mkdir -p dist
+          # Symbols stay out: nobody debugs an installed agent, and they would double the download.
+          rm -f "out/$RID"/*.pdb
+          case "$RID" in
+            win-*)
+              (cd "out/$RID" && zip -q -r "$GITHUB_WORKSPACE/dist/servermonitor-agent-$RID.zip" .)
+              ;;
+            *)
+              # The unit file travels with the executable, so an installer piped from curl, with no
+              # checkout beside it, still has one.
+              cp deploy/agent/servermonitor-agent.service "out/$RID/"
+              tar -C "out/$RID" -czf "dist/servermonitor-agent-$RID.tar.gz" .
+              ;;
+          esac
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: servermonitor-agent-${{ matrix.rid }}
+          path: dist/*
+          if-no-files-found: error

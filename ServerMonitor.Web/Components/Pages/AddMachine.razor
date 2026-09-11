@@ -1,0 +1,204 @@
+@page "/add-machine"
+@attribute [Authorize]
+@using ServerMonitor.Web.Presentation
+@using ServerMonitor.Web.Services
+@inject MetricsApiClient ApiClient
+@inject NavigationManager Nav
+@inject IConfiguration Configuration
+@inject IJSRuntime JS
+@implements IDisposable
+
+<PageTitle>Add a machine · ServerML</PageTitle>
+
+<div class="add-page">
+    <header class="page-header">
+        <a class="back-link" href="">← Fleet</a>
+        <h1>Add a machine</h1>
+        <p class="page-sub">
+            Run one command on the machine you want to watch. It downloads the agent, starts it with the
+            system, and the machine appears in the fleet within seconds.
+        </p>
+    </header>
+
+    @if (loadError is not null)
+    {
+        <div class="state-msg error">[ERR] @loadError</div>
+    }
+    else if (!isLoaded)
+    {
+        <div class="state-msg">Loading…</div>
+    }
+    else if (enrollmentToken is null)
+    {
+        <div class="notice is-crit">
+            <span class="notice-tag">[OFF]</span>
+            <strong>Registration is switched off.</strong>
+            The server has no enrollment token, so a new agent would be refused. Set
+            <code>ENROLLMENT_TOKEN</code> in the server's <code>.env</code> and run
+            <code>docker compose up -d</code>.
+        </div>
+    }
+    else
+    {
+        @if (pointsAtLoopback)
+        {
+            <div class="notice is-warn">
+                <span class="notice-tag">[WARN]</span>
+                <strong>These commands point at @apiUrl.</strong>
+                That works only on this server itself: on any other machine, localhost means that machine.
+                Open the dashboard by the server's network address instead — such as
+                <code>http://192.168.1.20:5298</code> — and the commands follow, or set
+                <code>PUBLIC_API_URL</code> in the server's <code>.env</code>.
+            </div>
+        }
+
+        <div class="section-label"><span class="section-no">01</span>Linux</div>
+        <div class="command-card">
+            <p class="command-hint">In a terminal on that machine. Installs a systemd service; sudo asks for your password.</p>
+            <div class="command">
+                <code>@Shown(Os.Linux)</code>
+                <button class="copy-btn @CopyClass(Os.Linux)" @onclick="() => CopyAsync(Os.Linux)">@CopyLabel(Os.Linux)</button>
+            </div>
+        </div>
+
+        <div class="section-label"><span class="section-no">02</span>Windows</div>
+        <div class="command-card">
+            <p class="command-hint">In PowerShell opened as Administrator. Registers a task that starts the agent with Windows.</p>
+            <div class="command">
+                <code>@Shown(Os.Windows)</code>
+                <button class="copy-btn @CopyClass(Os.Windows)" @onclick="() => CopyAsync(Os.Windows)">@CopyLabel(Os.Windows)</button>
+            </div>
+        </div>
+
+        <div class="token-row">
+            @if (copyFailed is not null)
+            {
+                <span class="copy-help">The browser refused the clipboard. Show the token, then select the command and copy it by hand.</span>
+            }
+            else
+            {
+                <span>The token is hidden on screen and copied in full.</span>
+            }
+            <button class="link-btn" @onclick="() => showToken = !showToken">@(showToken ? "Hide token" : "Show token")</button>
+        </div>
+
+        <div class="section-label"><span class="section-no">03</span>Good to know</div>
+        <ul class="facts">
+            <li>The agent is self-contained: the machine needs no .NET installed.</li>
+            <li>
+                It connects out to <code>@apiUrl</code> and nothing connects in to it, so a machine behind a
+                home router works as it is.
+            </li>
+            <li>
+                The token is used once, to register. After that the agent works from a key of its own, so
+                changing the token later disconnects nothing.
+            </li>
+            <li>
+                Anyone holding the token can add machines to this fleet, though it reads and changes nothing
+                else. Share the command as you would a password.
+            </li>
+            <li>Running the command again upgrades the agent and keeps the machine's place in the fleet.</li>
+        </ul>
+
+        <div class="section-label"><span class="section-no">04</span>Removing an agent</div>
+        <p class="removal-lead">
+            On the machine, the same way. The agent stops and is deleted; the machine and its history stay on
+            the dashboard until you remove them from its page.
+        </p>
+        <div class="removal">
+            <span class="removal-os">Linux</span>
+            <code>@InstallCommands.LinuxUninstall()</code>
+            <span class="removal-os">Windows</span>
+            <code>@InstallCommands.WindowsUninstall()</code>
+        </div>
+    }
+</div>
+
+@code {
+    // Shown in place of the token. The real one never reaches the page's HTML: it travels to the
+    // browser only when a command is copied or the token is shown, so a screenshot of this page, or a
+    // look over a shoulder, gives nothing away.
+    private const string TokenMask = "••••••••";
+
+    private enum Os { Linux, Windows }
+
+    private bool isLoaded;
+    private string? loadError;
+    private string? enrollmentToken;
+    private string apiUrl = string.Empty;
+    private bool pointsAtLoopback;
+    private bool showToken;
+    private Os? copied;
+    private Os? copyFailed;
+    private CancellationTokenSource? copyReset;
+
+    protected override async Task OnInitializedAsync()
+    {
+        apiUrl = InstallCommands.ResolveApiUrl(Configuration["ApiSettings:PublicUrl"], new Uri(Nav.BaseUri));
+        pointsAtLoopback = InstallCommands.PointsAtLoopback(apiUrl);
+
+        try
+        {
+            enrollmentToken = await ApiClient.GetEnrollmentTokenAsync();
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+
+        isLoaded = true;
+    }
+
+    private string Command(Os os, string token) => os == Os.Linux
+        ? InstallCommands.Linux(apiUrl, token)
+        : InstallCommands.Windows(apiUrl, token);
+
+    private string Shown(Os os) => Command(os, showToken ? enrollmentToken! : TokenMask);
+
+    private string CopyLabel(Os os) => copied == os ? "Copied" : copyFailed == os ? "Copy failed" : "Copy";
+
+    private string CopyClass(Os os) => copied == os ? "is-copied" : copyFailed == os ? "is-failed" : "";
+
+    private async Task CopyAsync(Os os)
+    {
+        bool succeeded;
+
+        try
+        {
+            succeeded = await JS.InvokeAsync<bool>("serverMonitorCopy", Command(os, enrollmentToken!));
+        }
+        catch (JSDisconnectedException)
+        {
+            return;
+        }
+        catch (JSException)
+        {
+            succeeded = false;
+        }
+
+        copied = succeeded ? os : null;
+        copyFailed = succeeded ? null : os;
+
+        copyReset?.Cancel();
+        copyReset?.Dispose();
+        copyReset = new CancellationTokenSource();
+
+        try
+        {
+            // Long enough to be read, short enough that a later glance does not claim a copy that
+            // happened minutes ago.
+            await Task.Delay(TimeSpan.FromSeconds(2), copyReset.Token);
+            copied = null;
+        }
+        catch (TaskCanceledException)
+        {
+            // Copied again within the two seconds: the newer click owns the label now.
+        }
+    }
+
+    public void Dispose()
+    {
+        copyReset?.Cancel();
+        copyReset?.Dispose();
+    }
+}
