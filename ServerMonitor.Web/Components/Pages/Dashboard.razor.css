@@ -288,6 +288,17 @@
     margin-top: 40px;
 }
 
+/* Sections 04 and 05 follow a card directly. Their labels used to sit flush against the card above,
+   0px away, and 14px from their own, so each read as a footnote to the wrong card. The same 40px as
+   every other gap between sections puts each label back with the card it names. */
+.section-gap {
+    margin-top: 40px;
+}
+
+.threshold-msg {
+    margin-top: 12px;
+}
+
 .stats-strip {
     display: flex;
     flex-wrap: wrap;
