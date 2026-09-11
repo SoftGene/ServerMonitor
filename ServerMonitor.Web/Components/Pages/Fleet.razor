@@ -124,9 +124,28 @@
     private bool isRefreshing;
     private Timer? refreshTimer;
 
+    [Inject]
+    private PersistentComponentState ApplicationState { get; set; } = default!;
+
+    private PersistingComponentStateSubscription persisting;
+
+    // Rendered on the server first and again once interactive, and the second render replaces the
+    // first. Without the list handed over it started empty, showed "Loading…" for as long as the
+    // request took, and drew every row and indicator afresh.
+    private const string SnapshotKey = "fleet";
+
     protected override async Task OnInitializedAsync()
     {
-        await LoadAsync();
+        persisting = ApplicationState.RegisterOnPersisting(PersistServersAsync);
+
+        if (ApplicationState.TryTakeFromJson<List<ServerSummary>>(SnapshotKey, out var restored) && restored is not null)
+        {
+            servers = restored;
+        }
+        else
+        {
+            await LoadAsync();
+        }
 
         // The fleet polls less often than the dashboard: what matters here is alive or not, not second-by-second precision.
         refreshTimer = new Timer(async _ =>
@@ -134,6 +153,16 @@
             await LoadAsync();
             await InvokeAsync(StateHasChanged);
         }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+    }
+
+    private Task PersistServersAsync()
+    {
+        if (servers is not null && loadError is null)
+        {
+            ApplicationState.PersistAsJson(SnapshotKey, servers);
+        }
+
+        return Task.CompletedTask;
     }
 
     private async Task LoadAsync()
@@ -223,5 +252,9 @@
     private static string LastSeen(ServerSummary server) =>
         MachineState.LastSeen(server.LastSeenUtc, DateTime.UtcNow);
 
-    public void Dispose() => refreshTimer?.Dispose();
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
+        persisting.Dispose();
+    }
 }

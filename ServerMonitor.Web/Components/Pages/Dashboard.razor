@@ -325,6 +325,35 @@
     private string confirmName = string.Empty;
     private string? deleteError;
 
+    [Inject]
+    private PersistentComponentState ApplicationState { get; set; } = default!;
+
+    private PersistingComponentStateSubscription persisting;
+
+    // The page is rendered twice: on the server, which already fetches everything shown, and again
+    // once it becomes interactive, which replaces that first page. The second render used to start
+    // empty and fetch it all again, so for as long as three API calls took, the machine was called
+    // "Server", the readings gave way to "Loading…", and every indicator was drawn afresh. The first
+    // render now leaves its data in the page for the second to start from.
+    private const string SnapshotKey = "dashboard";
+
+    private sealed record Snapshot(Guid PublicId, ServerSummary Server, ServerStatus? Status, List<MetricHistoryItem> History);
+
+    protected override void OnInitialized()
+    {
+        persisting = ApplicationState.RegisterOnPersisting(PersistSnapshotAsync);
+    }
+
+    private Task PersistSnapshotAsync()
+    {
+        if (hasLoaded && loadError is null && server is not null)
+        {
+            ApplicationState.PersistAsJson(SnapshotKey, new Snapshot(PublicId, server, status, history));
+        }
+
+        return Task.CompletedTask;
+    }
+
     // Not OnInitializedAsync: moving from one machine to another changes only the route
     // parameter, and Blazor reuses the component — initialisation would not run again.
     protected override async Task OnParametersSetAsync()
@@ -336,13 +365,27 @@
 
         loadedId = PublicId;
 
-        // Another machine's readings must not flash up on the new page, so the state is cleared.
-        hasLoaded = false;
-        server = null;
-        status = null;
-        history = new();
+        if (ApplicationState.TryTakeFromJson<Snapshot>(SnapshotKey, out var snapshot)
+            && snapshot is not null
+            && snapshot.PublicId == PublicId)
+        {
+            server = snapshot.Server;
+            status = snapshot.Status;
+            history = snapshot.History;
+            loadError = null;
+            hasLoaded = true;
+            SyncThresholdDraft();
+        }
+        else
+        {
+            // Another machine's readings must not flash up on the new page, so the state is cleared.
+            hasLoaded = false;
+            server = null;
+            status = null;
+            history = new();
 
-        await LoadDataAsync();
+            await LoadDataAsync();
+        }
 
         refreshTimer ??= new Timer(async _ =>
         {
@@ -643,5 +686,9 @@
     private const string IconDisk = "<svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='9'/><circle cx='12' cy='12' r='3'/><path d='M16.5 7.5l-3 3'/></svg>";
     private const string IconClock = "<svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='9'/><path d='M12 7v5l3 2'/></svg>";
 
-    public void Dispose() => refreshTimer?.Dispose();
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
+        persisting.Dispose();
+    }
 }
