@@ -31,7 +31,12 @@
     display: none;
 }
 
-/* Square knob: amber for day, phosphor for night */
+/* Square knob: amber for day, phosphor for night.
+
+   Its position follows the page's theme, which js/theme.js sets before the first paint, rather than a
+   class the component adds once it becomes interactive. Keyed on that class, the knob was painted in
+   the day position on every load and slid across half a second later for anyone on the dark theme.
+   A click still animates it. */
 .switch-thumb {
     position: absolute;
     top: 3px;
@@ -44,7 +49,13 @@
     z-index: 1;
 }
 
-.theme-switch.dark .switch-thumb {
+:root[data-theme="dark"] .switch-thumb {
     transform: translateX(26px);
     background: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .switch-thumb {
+        transition: none;
+    }
 }

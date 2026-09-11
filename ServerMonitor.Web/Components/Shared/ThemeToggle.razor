@@ -1,7 +1,9 @@
-﻿@inject IJSRuntime JS
+@inject IJSRuntime JS
 @implements IAsyncDisposable
 
-<button class="theme-switch @(currentTheme == "dark" ? "dark" : "")" @onclick="ToggleTheme" title="Toggle theme" aria-label="Toggle theme">
+@* How the switch looks comes from the page's theme, in CSS, not from this component's state: the state
+   is known only once the component is interactive, which is after the first paint. *@
+<button class="theme-switch" @onclick="ToggleTheme" title="Toggle theme" aria-label="Toggle theme">
     <span class="switch-track">
         <span class="clouds">
             <span class="cloud cloud-a">
@@ -38,8 +40,8 @@
     {
         if (firstRender)
         {
+            // Only to know which way the next click goes; nothing on screen depends on it.
             currentTheme = await JS.InvokeAsync<string>("themeManager.initTheme");
-            StateHasChanged();
         }
     }
 

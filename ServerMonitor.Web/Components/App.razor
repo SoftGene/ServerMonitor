@@ -13,7 +13,10 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <ImportMap />
     <script src="js/theme.js"></script>
-    <link rel="icon" type="image/png" href="favicon.png" />
+    @* PNG for browsers without SVG icons, then the SVG, which the rest choose. Both fingerprinted, so a
+       browser holding the old Blazor icon in its favicon cache fetches the new one. *@
+    <link rel="icon" type="image/png" sizes="32x32" href="@Assets["favicon.png"]" />
+    <link rel="icon" type="image/svg+xml" href="@Assets["favicon.svg"]" />
     <HeadOutlet @rendermode="@RenderModeForPage" />
 </head>
 
