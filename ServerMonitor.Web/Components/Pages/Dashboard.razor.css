@@ -353,11 +353,12 @@
 
 /* ===== Wireframe cube, drawn by js/cube.js ===== */
 
+/* Close to the 38px buttons beside it, so it reads as part of that group rather than a speck. */
 .cube {
     display: block;
-    width: 26px;
-    height: 26px;
-    margin-right: 6px;
+    width: 34px;
+    height: 34px;
+    margin-right: 8px;
     align-self: center;
     color: var(--accent);
     transition: color 0.3s ease;
