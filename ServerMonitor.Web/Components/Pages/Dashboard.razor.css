@@ -351,49 +351,24 @@
     to { visibility: hidden; }
 }
 
-/* ===== Wireframe cube ===== */
-
-.cube-wrap {
-    width: 26px;
-    height: 26px;
-    perspective: 140px;
-    margin-right: 6px;
-    align-self: center;
-}
+/* ===== Wireframe cube, drawn by js/cube.js ===== */
 
 .cube {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    transform-style: preserve-3d;
-    animation: cube-spin 16s linear infinite;
+    display: block;
+    width: 26px;
+    height: 26px;
+    margin-right: 6px;
+    align-self: center;
+    color: var(--accent);
+    transition: color 0.3s ease;
 }
 
-.cube.paused {
-    animation-play-state: paused;
-}
-
-.cf {
-    position: absolute;
-    inset: 0;
-    border: 1px solid var(--accent);
-    opacity: 0.5;
-}
-
-.cf-1 { transform: translateZ(13px); }
-.cf-2 { transform: rotateY(90deg) translateZ(13px); }
-.cf-3 { transform: rotateY(180deg) translateZ(13px); }
-.cf-4 { transform: rotateY(-90deg) translateZ(13px); }
-.cf-5 { transform: rotateX(90deg) translateZ(13px); }
-.cf-6 { transform: rotateX(-90deg) translateZ(13px); }
-
-@keyframes cube-spin {
-    from { transform: rotateX(-20deg) rotateY(0deg); }
-    to { transform: rotateX(-20deg) rotateY(360deg); }
+/* Still and faded while readings are not arriving: the fact the LIVE dot states, said quietly. */
+.cube[data-flowing="false"] {
+    color: var(--text-soft);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .cube { animation: none; }
     .term-cursor { animation: none; }
     .live-dot { animation: none; }
 }
