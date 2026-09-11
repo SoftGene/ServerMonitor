@@ -1,11 +1,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY ServerMonitor.Web/*.csproj ServerMonitor.Web/
-RUN dotnet restore ServerMonitor.Web/ServerMonitor.Web.csproj
-
+# The whole project goes in before the restore, not the .csproj on its own as in the API's
+# Dockerfile. The SDK adds the package that carries the Blazor script, _framework/blazor.web.js, only
+# when the restore can see the project's components. Restored from the .csproj alone, the site was
+# published without the script, and no button on any page did anything. The price is a restore that
+# is no longer cached apart from the code.
 COPY ServerMonitor.Web/ ServerMonitor.Web/
-RUN dotnet publish ServerMonitor.Web/ServerMonitor.Web.csproj -c Release -o /app --no-restore
+RUN dotnet publish ServerMonitor.Web/ServerMonitor.Web.csproj -c Release -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
